@@ -9,6 +9,8 @@ from .policy import (
 )
 from .retriever import MemoryRetriever
 from .store import MemoryStore
+from .importer import CanonicalMemoryImporter
+from .context import MemoryContext, MemoryContextBuilder
 
 __all__ = [
     "MemoryRecord",
@@ -16,6 +18,9 @@ __all__ = [
     "MemoryType",
     "MemoryStore",
     "MemoryRetriever",
+    "CanonicalMemoryImporter",
+    "MemoryContext",
+    "MemoryContextBuilder",
     "can_modify",
     "is_long_term_candidate",
 ]
