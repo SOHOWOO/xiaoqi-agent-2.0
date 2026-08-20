@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Set
 
 from .events import MemoryTier, MicroEventEngine, SimulationEvent
+from .energy_engine import update_energy
 from .schedule_engine import NEEDS_REVIEW, ScheduleEngine
 from .state import GroundTruthStore, InteractionState, LifeState, SimulationResult
 from .time_engine import DEFAULT_TZ, ensure_aware, iter_days
@@ -80,6 +81,17 @@ class LifeSimulator:
                 current_slot_id = occ.slot.slot_id
                 current_activity = occ.slot.name
                 slots_seen.append(occ.slot.slot_id)
+
+                # 根据本次 simulate 与 Slot 的实际重叠时间更新疲劳和精力。
+                overlap_hours = (
+                    overlap_end - overlap_start
+                ).total_seconds() / 3600.0
+
+                update_energy(
+                    self.life_state,
+                    occ.slot,
+                    overlap_hours,
+                )
 
                 for rule in occ.slot.events:
                     occurred = self.micro_events.evaluate(
