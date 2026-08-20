@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from ..life_loop import LifeLoop
 from ..memory import (
     MemoryContextBuilder,
+    MemoryManager,
     MemoryRecord,
     MemorySource,
     MemoryType,
 )
+from ..memory.importance import estimate_importance
 from .models import ChatResult
 
 
@@ -19,7 +19,7 @@ class ChatService:
     它负责：
     - 接收用户消息
     - 检索相关记忆
-    - 保存用户消息为 Interaction Memory
+    - 根据重要程度决定是否保存用户消息
     - 整理当前生活状态
     - 返回 ChatResult
     """
@@ -28,9 +28,21 @@ class ChatService:
         self,
         life_loop: LifeLoop,
         memory_context_builder: MemoryContextBuilder,
+        memory_manager: MemoryManager | None = None,
     ) -> None:
         self.life_loop = life_loop
         self.memory_context_builder = memory_context_builder
+
+        self.memory_manager = (
+            memory_manager
+            if memory_manager is not None
+            else MemoryManager(self.life_loop.memory_store)
+        )
+
+        if self.memory_manager.store is not self.life_loop.memory_store:
+            raise ValueError(
+                "memory_manager must use the same memory_store"
+            )
 
     def handle_message(
         self,
@@ -56,8 +68,13 @@ class ChatService:
             interaction_state=self.life_loop.interaction_state,
         )
 
-    def _store_user_message(self, text: str) -> MemoryRecord:
-        """把用户本次消息保存为 Interaction Memory。"""
+    def _store_user_message(
+        self,
+        text: str,
+    ) -> MemoryRecord | None:
+        """根据重要程度决定是否保存用户消息。"""
+
+        importance = estimate_importance(text)
 
         memory = MemoryRecord(
             memory_id=self._next_interaction_memory_id(),
@@ -65,13 +82,18 @@ class ChatService:
             content=text.strip(),
             created_at=self.life_loop.current_time,
             source=MemorySource.CONVERSATION,
-            importance=1.0,
+            importance=importance,
             confidence=1.0,
         )
 
-        self.life_loop.memory_store.add(memory)
+        decision = self.memory_manager.process(memory)
 
-        return memory
+        if decision.action == "add":
+            return self.life_loop.memory_store.get(
+                memory.memory_id
+            )
+
+        return None
 
     def _next_interaction_memory_id(self) -> str:
         """生成不会与现有记忆冲突的 Interaction Memory ID。"""

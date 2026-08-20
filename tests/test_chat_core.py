@@ -155,3 +155,35 @@ def test_previous_user_message_can_be_retrieved():
     ]
 
     assert "我今天买了草莓" in contents
+
+
+def test_low_importance_user_message_is_not_saved():
+    chat = make_chat_service()
+
+    before = len(chat.life_loop.memory_store)
+
+    chat.handle_message("好的")
+
+    after = len(chat.life_loop.memory_store)
+
+    assert after == before
+
+
+def test_high_importance_user_message_is_saved_with_importance():
+    chat = make_chat_service()
+
+    chat.handle_message("我今天买了草莓")
+
+    stored = chat.life_loop.memory_store.get(
+        "interaction:1"
+    )
+
+    assert stored is not None
+    assert stored.content == "我今天买了草莓"
+    assert stored.importance >= 0.7
+
+
+def test_chat_service_uses_memory_manager_with_shared_store():
+    chat = make_chat_service()
+
+    assert chat.memory_manager.store is chat.life_loop.memory_store
