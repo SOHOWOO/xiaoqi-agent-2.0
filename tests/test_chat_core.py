@@ -205,3 +205,73 @@ def test_chat_prompt_builder_contains_message_memory_and_life_state():
     assert "当前活动" in prompt
     assert "疲劳" in prompt
     assert "精力" in prompt
+
+
+def test_chat_service_responds_with_provider():
+    from core.chat import StubResponseProvider
+
+    chat = make_chat_service()
+
+    chat.response_provider = StubResponseProvider()
+
+    result = chat.handle_message(
+        "小七，你好呀"
+    )
+
+    reply = chat.respond(result)
+
+    assert reply == "小七收到了你的消息。"
+
+
+def test_chat_service_handle_and_respond():
+    from core.chat import StubResponseProvider
+
+    chat = make_chat_service()
+
+    chat.response_provider = StubResponseProvider()
+
+    reply = chat.handle_and_respond(
+        "你好，小七"
+    )
+
+    assert reply == "小七收到了你的消息。"
+
+
+def test_chat_service_requires_provider_for_response():
+    chat = make_chat_service()
+
+    result = chat.handle_message(
+        "你好，小七"
+    )
+
+    with pytest.raises(RuntimeError):
+        chat.respond(result)
+
+
+def test_provider_receives_built_prompt():
+    from core.chat import ResponseProvider
+
+    class RecordingProvider:
+        def __init__(self):
+            self.prompt = None
+
+        def generate(self, prompt: str) -> str:
+            self.prompt = prompt
+            return "收到"
+
+    provider = RecordingProvider()
+    assert isinstance(provider, ResponseProvider)
+
+    chat = make_chat_service()
+    chat.response_provider = provider
+
+    result = chat.handle_message(
+        "小七喜欢吃什么？"
+    )
+
+    reply = chat.respond(result)
+
+    assert reply == "收到"
+    assert provider.prompt is not None
+    assert "小七喜欢吃面" in provider.prompt
+    assert "小七喜欢吃什么？" in provider.prompt
