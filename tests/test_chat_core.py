@@ -119,3 +119,39 @@ def test_chat_service_does_not_call_llm():
 
     assert result.user_message == "你好，小七"
     assert isinstance(result, ChatResult)
+
+
+def test_chat_service_stores_user_message_as_interaction_memory():
+    chat = make_chat_service()
+
+    before = len(chat.life_loop.memory_store)
+
+    result = chat.handle_message("我今天买了草莓")
+
+    after = len(chat.life_loop.memory_store)
+
+    assert after == before + 1
+
+    memories = chat.life_loop.memory_store.all()
+
+    stored = memories[-1]
+
+    assert stored.memory_type == MemoryType.INTERACTION
+    assert stored.source == MemorySource.CONVERSATION
+    assert stored.content == "我今天买了草莓"
+    assert stored.memory_id.startswith("interaction:")
+
+
+def test_previous_user_message_can_be_retrieved():
+    chat = make_chat_service()
+
+    chat.handle_message("我今天买了草莓")
+
+    result = chat.handle_message("我今天买了什么水果？")
+
+    contents = [
+        memory.content
+        for memory in result.memory_context.memories
+    ]
+
+    assert "我今天买了草莓" in contents
