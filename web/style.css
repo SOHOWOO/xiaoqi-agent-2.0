@@ -1,0 +1,171 @@
+:root {
+  font-family:
+    Inter,
+    "PingFang SC",
+    "Microsoft YaHei",
+    system-ui,
+    sans-serif;
+  color: #1f2937;
+  background: #f4f1ed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, #fff7f0 0, transparent 35%),
+    #f4f1ed;
+}
+
+.chat-shell {
+  width: min(900px, 100%);
+  height: 100vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.chat-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.chat-header h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+.chat-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.status {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.life-card {
+  padding: 12px 24px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.life-card div {
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.life-card span {
+  display: block;
+  color: #9ca3af;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.life-card strong {
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.message {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: min(75%, 620px);
+  padding: 12px 15px;
+  border-radius: 16px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.message.user .bubble {
+  background: #2f6fed;
+  color: white;
+  border-bottom-right-radius: 5px;
+}
+
+.message.assistant .bubble {
+  background: #f1f1f1;
+  color: #222;
+  border-bottom-left-radius: 5px;
+}
+
+.composer {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 10px;
+  background: white;
+}
+
+.composer textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font: inherit;
+  min-height: 46px;
+  max-height: 140px;
+}
+
+.composer button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0 20px;
+  background: #2f6fed;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.composer button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 700px) {
+  .life-card {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bubble {
+    max-width: 88%;
+  }
+
+  .chat-header {
+    padding: 16px;
+  }
+
+  .messages {
+    padding: 16px;
+  }
+}

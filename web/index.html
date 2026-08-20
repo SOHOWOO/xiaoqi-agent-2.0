@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小七</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="chat-shell">
+    <header class="chat-header">
+      <div>
+        <h1>小七</h1>
+        <p>你的 AI 女友 · 记得你，也有自己的生活</p>
+      </div>
+      <div id="status" class="status">连接中…</div>
+    </header>
+
+    <section class="life-card">
+      <div><span>时间</span><strong id="life-time">-</strong></div>
+      <div><span>活动</span><strong id="life-activity">-</strong></div>
+      <div><span>精力</span><strong id="life-energy">-</strong></div>
+      <div><span>疲劳</span><strong id="life-fatigue">-</strong></div>
+    </section>
+
+    <section id="messages" class="messages"></section>
+
+    <form id="chat-form" class="composer">
+      <textarea
+        id="message"
+        rows="1"
+        placeholder="和小七说点什么…"
+        autocomplete="off"
+      ></textarea>
+      <button id="send" type="submit">发送</button>
+    </form>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
