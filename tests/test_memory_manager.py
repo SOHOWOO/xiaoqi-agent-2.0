@@ -213,3 +213,94 @@ def test_add_if_allowed_ignores_low_importance_memory():
 
     assert decision.action == MemoryAction.IGNORE
     assert len(store) == 0
+def test_update_if_allowed_replaces_existing_memory():
+    store = MemoryStore()
+    manager = MemoryManager(store)
+
+    old = make_memory(
+        "interaction:preference",
+        MemoryType.INTERACTION,
+        "用户喜欢喝茶",
+        importance=0.9,
+    )
+
+    store.add(old)
+
+    new = make_memory(
+        "interaction:new",
+        MemoryType.INTERACTION,
+        "用户现在更喜欢喝咖啡",
+        importance=0.9,
+    )
+
+    decision = manager.update_if_allowed(
+        new,
+        old,
+    )
+
+    assert decision.action == MemoryAction.UPDATE
+    assert decision.target_memory_id == old.memory_id
+    assert len(store) == 1
+
+    updated = store.get("interaction:preference")
+
+    assert updated is not None
+    assert updated.content == "用户现在更喜欢喝咖啡"
+    assert updated.memory_id == "interaction:preference"
+
+
+def test_rejected_update_does_not_change_memory():
+    store = MemoryStore()
+    manager = MemoryManager(store)
+
+    old = make_memory(
+        "canonical:identity",
+        MemoryType.CANONICAL,
+        "真实身份：小七",
+    )
+
+    store.add(old)
+
+    new = make_memory(
+        "virtual:identity",
+        MemoryType.VIRTUAL_LIFE,
+        "虚拟生活身份",
+        importance=1.0,
+    )
+
+    decision = manager.update_if_allowed(
+        new,
+        old,
+    )
+
+    assert decision.action == MemoryAction.REJECT
+
+    stored = store.get("canonical:identity")
+
+    assert stored is not None
+    assert stored.content == "真实身份：小七"
+def test_store_update_replaces_record():
+    store = MemoryStore()
+
+    old = make_memory(
+        "memory:1",
+        MemoryType.INTERACTION,
+        "旧内容",
+    )
+
+    store.add(old)
+
+    new = make_memory(
+        "memory:new",
+        MemoryType.INTERACTION,
+        "新内容",
+    )
+
+    updated = store.update(
+        "memory:1",
+        new,
+    )
+
+    assert updated.memory_id == "memory:1"
+    assert updated.content == "新内容"
+    assert len(store) == 1

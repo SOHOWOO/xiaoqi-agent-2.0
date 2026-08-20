@@ -10,7 +10,15 @@ from .policy import (
 from .retriever import MemoryRetriever
 from .store import MemoryStore
 from .importer import CanonicalMemoryImporter
-from .context import MemoryContext, MemoryContextBuilder
+from .context import (
+    MemoryContext,
+    MemoryContextBuilder,
+)
+from .manager import (
+    MemoryAction,
+    MemoryDecision,
+    MemoryManager,
+)
 
 __all__ = [
     "MemoryRecord",
@@ -21,6 +29,9 @@ __all__ = [
     "CanonicalMemoryImporter",
     "MemoryContext",
     "MemoryContextBuilder",
+    "MemoryAction",
+    "MemoryDecision",
+    "MemoryManager",
     "can_modify",
     "is_long_term_candidate",
 ]

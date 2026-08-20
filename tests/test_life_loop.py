@@ -163,3 +163,53 @@ def test_life_loop_state_snapshot_remains_independent():
         result1.life_state.current_time
         != result2.life_state.current_time
     )
+def test_life_loop_stores_virtual_life_events_in_memory():
+    from core.life_loop import LifeLoop
+    from core.memory import (
+        MemorySource,
+        MemoryType,
+    )
+
+    start = make_aware(2026, 8, 20, 7, 40)
+
+    loop = LifeLoop(
+        start_time=start,
+        seed=42,
+    )
+
+    result = loop.tick(
+        timedelta(hours=11),
+    )
+
+    memories = loop.memory_store.all()
+
+    assert len(memories) == len(result.events)
+
+    for memory in memories:
+        assert memory.memory_type == MemoryType.VIRTUAL_LIFE
+        assert memory.source == MemorySource.LIFE_SIMULATION
+        assert memory.memory_id.startswith("event:")
+
+
+def test_life_loop_does_not_duplicate_memory_events():
+    from core.life_loop import LifeLoop
+
+    start = make_aware(2026, 8, 20, 7, 40)
+
+    loop = LifeLoop(
+        start_time=start,
+        seed=42,
+    )
+
+    result = loop.tick(
+        timedelta(hours=11),
+    )
+
+    first_count = len(loop.memory_store)
+
+    loop._store_events(result)
+
+    second_count = len(loop.memory_store)
+
+    assert first_count == len(result.events)
+    assert second_count == first_count

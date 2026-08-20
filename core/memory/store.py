@@ -39,31 +39,20 @@ class MemoryStore:
     ) -> MemoryRecord:
         """添加一条记忆。
 
-        支持两种形式：
+        支持新 API：
 
-        新 API:
             store.add(MemoryRecord(...))
 
-        旧 API:
+        以及旧 API：
+
             store.add("内容", created_at, "user")
 
-        以及旧 API 的关键字形式:
-            store.add(
-                content="内容",
-                created_at=created_at,
-                source="user",
-            )
+        和旧 API 的关键字形式。
         """
 
-        # ---------------------------------------------------------
-        # 新 API：直接添加 MemoryRecord
-        # ---------------------------------------------------------
         if isinstance(memory, MemoryRecord):
             record = memory
 
-        # ---------------------------------------------------------
-        # 旧 API：add(content, created_at, source)
-        # ---------------------------------------------------------
         else:
             if content is None:
                 content = memory
@@ -83,13 +72,6 @@ class MemoryStore:
             if memory_id is None:
                 memory_id = f"memory-{len(self._memories) + 1}"
 
-            # 旧 API 保留原来的字符串 source 行为。
-            #
-            # 这是为了兼容旧项目：
-            #
-            #     assert memory.source == "user"
-            #
-            # 新 MemoryRecord API 不经过这里，因此不会受到影响。
             if source == "user":
                 memory_source = "user"
 
@@ -118,9 +100,6 @@ class MemoryStore:
                 confidence=1.0,
             )
 
-        # ---------------------------------------------------------
-        # 防止重复 memory_id
-        # ---------------------------------------------------------
         if any(
             existing.memory_id == record.memory_id
             for existing in self._memories
@@ -132,6 +111,37 @@ class MemoryStore:
         self._memories.append(record)
 
         return record
+
+    def update(
+        self,
+        memory_id: str,
+        memory: MemoryRecord,
+    ) -> MemoryRecord:
+        """用新的 MemoryRecord 替换已有记忆。
+
+        更新后保持目标记忆原有 memory_id，
+        从而避免 UPDATE 产生重复 ID。
+        """
+
+        if not memory_id.strip():
+            raise ValueError("memory_id cannot be empty")
+
+        for index, existing in enumerate(self._memories):
+            if existing.memory_id == memory_id:
+                updated = MemoryRecord(
+                    memory_id=memory_id,
+                    memory_type=memory.memory_type,
+                    content=memory.content,
+                    created_at=memory.created_at,
+                    source=memory.source,
+                    importance=memory.importance,
+                    confidence=memory.confidence,
+                )
+
+                self._memories[index] = updated
+                return updated
+
+        raise KeyError(f"memory_id not found: {memory_id}")
 
     def all(self) -> List[MemoryRecord]:
         """返回全部记忆。"""
