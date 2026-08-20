@@ -36,14 +36,28 @@ def update_energy(
         EnergyProfile(0.0, 0.0),
     )
 
-    life_state.fatigue = min(
-        1.0,
-        max(0.0, life_state.fatigue + profile.fatigue_delta_per_hour * hours),
+    life_state.fatigue = round(
+        min(
+            1.0,
+            max(
+                0.0,
+                life_state.fatigue
+                + profile.fatigue_delta_per_hour * hours,
+            ),
+        ),
+        10,
     )
 
-    life_state.energy = min(
-        1.0,
-        max(0.0, life_state.energy + profile.energy_delta_per_hour * hours),
+    life_state.energy = round(
+        min(
+            1.0,
+            max(
+                0.0,
+                life_state.energy
+                + profile.energy_delta_per_hour * hours,
+            ),
+        ),
+        10,
     )
 
     return life_state
