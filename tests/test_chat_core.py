@@ -187,3 +187,21 @@ def test_chat_service_uses_memory_manager_with_shared_store():
     chat = make_chat_service()
 
     assert chat.memory_manager.store is chat.life_loop.memory_store
+
+
+def test_chat_prompt_builder_contains_message_memory_and_life_state():
+    from core.chat import ChatPromptBuilder
+
+    chat = make_chat_service()
+
+    result = chat.handle_message("小七喜欢吃什么？")
+
+    prompt = ChatPromptBuilder().build(result)
+
+    assert "你是小七" in prompt
+    assert "小七喜欢吃什么？" in prompt
+    assert "小七喜欢吃面" in prompt
+    assert "【当前生活状态】" in prompt
+    assert "当前活动" in prompt
+    assert "疲劳" in prompt
+    assert "精力" in prompt
