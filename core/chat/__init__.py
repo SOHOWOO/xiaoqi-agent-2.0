@@ -1,6 +1,7 @@
 from .models import ChatResult
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider, StubResponseProvider
+from .openai_compatible import OpenAICompatibleProvider
 from .service import ChatService
 
 __all__ = [
@@ -8,5 +9,6 @@ __all__ = [
     "ChatPromptBuilder",
     "ResponseProvider",
     "StubResponseProvider",
+    "OpenAICompatibleProvider",
     "ChatService",
 ]

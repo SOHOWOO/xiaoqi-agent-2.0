@@ -275,3 +275,42 @@ def test_provider_receives_built_prompt():
     assert provider.prompt is not None
     assert "小七喜欢吃面" in provider.prompt
     assert "小七喜欢吃什么？" in provider.prompt
+
+
+def test_openai_compatible_provider_is_response_provider():
+    from core.chat import OpenAICompatibleProvider
+    from core.chat.provider import ResponseProvider
+
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+        base_url="http://localhost:9999/v1",
+        model="test-model",
+    )
+
+    assert isinstance(provider, ResponseProvider)
+
+
+def test_openai_compatible_provider_rejects_empty_prompt():
+    from core.chat import OpenAICompatibleProvider
+
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+        base_url="http://localhost:9999/v1",
+        model="test-model",
+    )
+
+    with pytest.raises(ValueError):
+        provider.generate("")
+
+
+def test_openai_compatible_provider_requires_api_key():
+    from core.chat import OpenAICompatibleProvider
+
+    provider = OpenAICompatibleProvider(
+        api_key=None,
+        base_url="http://localhost:9999/v1",
+        model="test-model",
+    )
+
+    with pytest.raises(RuntimeError):
+        provider.generate("你好")
