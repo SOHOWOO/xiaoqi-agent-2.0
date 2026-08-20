@@ -2,62 +2,34 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import timedelta
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import (
+    BaseHTTPRequestHandler,
+    ThreadingHTTPServer,
+)
 from pathlib import Path
 from urllib.parse import urlparse
 
-from core.chat import ChatService, OpenAICompatibleProvider
-from core.life_loop import LifeLoop
-from core.memory import MemoryContextBuilder, MemoryRetriever
+from web_runtime import WebRuntime
 
 
 ROOT = Path(__file__).resolve().parent
 WEB_DIR = ROOT / "web"
 
-
-def build_chat_service() -> ChatService:
-    """创建网页使用的 ChatService。"""
-
-    loop = LifeLoop(
-        start_time=__import__(
-            "core.time_engine",
-            fromlist=["make_aware"],
-        ).make_aware(2026, 8, 20, 9, 0),
-        seed=42,
-    )
-
-    retriever = MemoryRetriever(loop.memory_store)
-    context_builder = MemoryContextBuilder(retriever)
-
-    provider = OpenAICompatibleProvider()
-
-    return ChatService(
-        life_loop=loop,
-        memory_context_builder=context_builder,
-        response_provider=provider,
-    )
-
-
-CHAT_SERVICE = build_chat_service()
-
-
-def life_state_dict() -> dict:
-    state = CHAT_SERVICE.life_loop.life_state
-
-    return {
-        "current_time": str(state.current_time),
-        "current_activity": state.current_activity,
-        "energy": state.energy,
-        "fatigue": state.fatigue,
-    }
+RUNTIME = WebRuntime(
+    simulation_minutes_per_real_second=float(
+        os.getenv(
+            "XIAOQI_SIM_MINUTES_PER_REAL_SECOND",
+            "60",
+        )
+    ),
+)
 
 
 class WebHandler(BaseHTTPRequestHandler):
-    """小七网页聊天 HTTP Handler。"""
+    """小七网页 HTTP Handler。"""
 
-    server_version = "XiaoQiWeb/1.0"
+    server_version = "XiaoQiWeb/1.1"
 
     def _send_json(
         self,
@@ -79,6 +51,7 @@ class WebHandler(BaseHTTPRequestHandler):
             str(len(body)),
         )
         self.end_headers()
+
         self.wfile.write(body)
 
     def _send_file(
@@ -105,6 +78,7 @@ class WebHandler(BaseHTTPRequestHandler):
             str(len(body)),
         )
         self.end_headers()
+
         self.wfile.write(body)
 
     def do_GET(self) -> None:
@@ -132,9 +106,16 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/status":
+            RUNTIME.advance()
+
             self._send_json(
                 {
-                    "life_state": life_state_dict(),
+                    "life_state": (
+                        RUNTIME.life_state_dict()
+                    ),
+                    "memory_counts": (
+                        RUNTIME.memory_counts()
+                    ),
                 }
             )
             return
@@ -154,21 +135,38 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
-        content_length = int(
-            self.headers.get("Content-Length", "0")
-        )
+        try:
+            content_length = int(
+                self.headers.get(
+                    "Content-Length",
+                    "0",
+                )
+            )
+        except ValueError:
+            content_length = 0
 
         if content_length <= 0:
             self._send_json(
-                {"error": "request body is required"},
+                {
+                    "error": (
+                        "request body is required"
+                    )
+                },
                 HTTPStatus.BAD_REQUEST,
             )
             return
 
         try:
-            raw = self.rfile.read(content_length)
-            payload = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            raw = self.rfile.read(
+                content_length
+            )
+            payload = json.loads(
+                raw.decode("utf-8")
+            )
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ):
             self._send_json(
                 {"error": "invalid JSON"},
                 HTTPStatus.BAD_REQUEST,
@@ -177,7 +175,10 @@ class WebHandler(BaseHTTPRequestHandler):
 
         message = payload.get("message")
 
-        if not isinstance(message, str) or not message.strip():
+        if (
+            not isinstance(message, str)
+            or not message.strip()
+        ):
             self._send_json(
                 {"error": "message cannot be empty"},
                 HTTPStatus.BAD_REQUEST,
@@ -185,15 +186,20 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            result = CHAT_SERVICE.handle_message(message)
-            reply = CHAT_SERVICE.respond(result)
+            result = RUNTIME.handle_message(
+                message
+            )
+
+            reply = RUNTIME.respond(result)
 
             self._send_json(
                 {
                     "reply": reply,
-                    "life_state": life_state_dict(),
-                    "memory_count": len(
-                        CHAT_SERVICE.life_loop.memory_store
+                    "life_state": (
+                        RUNTIME.life_state_dict()
+                    ),
+                    "memory_counts": (
+                        RUNTIME.memory_counts()
                     ),
                 }
             )
@@ -238,7 +244,7 @@ def main() -> None:
     )
 
     print(
-        f"小七网页已启动："
+        "小七网页已启动："
         f"http://127.0.0.1:{port}"
     )
 

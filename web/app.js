@@ -8,6 +8,7 @@ const lifeTime = document.getElementById("life-time");
 const lifeActivity = document.getElementById("life-activity");
 const lifeEnergy = document.getElementById("life-energy");
 const lifeFatigue = document.getElementById("life-fatigue");
+const virtualMemoryCount = document.getElementById("virtual-memory-count");
 
 function addMessage(role, text) {
   const wrapper = document.createElement("div");
@@ -24,6 +25,14 @@ function addMessage(role, text) {
 
 function setStatus(text) {
   statusText.textContent = text;
+}
+
+function updateMemoryCounts(counts) {
+  if (!counts) {
+    return;
+  }
+
+  virtualMemoryCount.textContent = counts.virtual_life ?? 0;
 }
 
 function updateLifeState(lifeState) {
@@ -47,6 +56,7 @@ async function loadStatus() {
 
     const data = await response.json();
     updateLifeState(data.life_state);
+    updateMemoryCounts(data.memory_counts);
     setStatus("在线");
   } catch (error) {
     console.error(error);
@@ -77,6 +87,7 @@ async function sendMessage(text) {
 
     addMessage("assistant", data.reply);
     updateLifeState(data.life_state);
+    updateMemoryCounts(data.memory_counts);
     setStatus("在线");
   } catch (error) {
     console.error(error);
@@ -121,3 +132,5 @@ addMessage(
 
 loadStatus();
 input.focus();
+
+setInterval(loadStatus, 5000);
