@@ -1,0 +1,84 @@
+{
+  "workday": {
+    "timezone": "Asia/Singapore",
+    "slots": [
+      {
+        "slot_id": "sleep",
+        "name": "睡眠",
+        "start": "00:00",
+        "end": "07:30",
+        "events": []
+      },
+      {
+        "slot_id": "morning_prep",
+        "name": "晨间准备",
+        "start": "07:30",
+        "end": "08:20",
+        "events": []
+      },
+      {
+        "slot_id": "commute",
+        "name": "通勤",
+        "start": "08:20",
+        "end": "09:00",
+        "events": []
+      },
+      {
+        "slot_id": "morning_clinic",
+        "name": "上午门诊",
+        "start": "09:00",
+        "end": "12:00",
+        "events": [
+          {
+            "event_type": "clinic_minor_event",
+            "probability": 0.25,
+            "importance": 2,
+            "source": "simulation"
+          }
+        ]
+      },
+      {
+        "slot_id": "lunch_break",
+        "name": "午餐午休",
+        "start": "12:00",
+        "end": "13:30",
+        "events": []
+      },
+      {
+        "slot_id": "afternoon_clinic",
+        "name": "下午门诊",
+        "start": "13:30",
+        "end": "18:00",
+        "events": []
+      },
+      {
+        "slot_id": "commute_grocery",
+        "name": "下班通勤与买菜",
+        "start": "18:00",
+        "end": "19:00",
+        "events": []
+      },
+      {
+        "slot_id": "cooking_dinner",
+        "name": "做饭晚餐",
+        "start": "19:00",
+        "end": "20:30",
+        "events": []
+      },
+      {
+        "slot_id": "home_leisure",
+        "name": "居家休闲",
+        "start": "20:30",
+        "end": "22:30",
+        "events": []
+      },
+      {
+        "slot_id": "pre_sleep",
+        "name": "睡前时间",
+        "start": "22:30",
+        "end": "24:00",
+        "events": []
+      }
+    ]
+  }
+}
