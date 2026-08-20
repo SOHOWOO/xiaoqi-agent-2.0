@@ -314,3 +314,27 @@ def test_openai_compatible_provider_requires_api_key():
 
     with pytest.raises(RuntimeError):
         provider.generate("你好")
+
+
+def test_openai_compatible_provider_defaults_to_deepseek():
+    from core.chat import OpenAICompatibleProvider
+
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+    )
+
+    assert provider.base_url == "https://api.deepseek.com"
+    assert provider.model == "deepseek-v4-flash"
+
+
+def test_deepseek_api_key_environment_variable(monkeypatch):
+    from core.chat import OpenAICompatibleProvider
+
+    monkeypatch.setenv(
+        "DEEPSEEK_API_KEY",
+        "deepseek-test-key",
+    )
+
+    provider = OpenAICompatibleProvider()
+
+    assert provider.api_key == "deepseek-test-key"

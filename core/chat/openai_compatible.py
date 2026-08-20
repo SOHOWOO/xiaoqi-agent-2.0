@@ -18,18 +18,21 @@ class OpenAICompatibleProvider:
         model: str | None = None,
         timeout: float | None = None,
     ) -> None:
-        self.api_key = api_key or os.getenv("XIAOQI_LLM_API_KEY")
+        self.api_key = (
+            api_key
+            or os.getenv("DEEPSEEK_API_KEY")
+            or os.getenv("XIAOQI_LLM_API_KEY")
+        )
+
         self.base_url = (
             base_url
-            or os.getenv(
-                "XIAOQI_LLM_BASE_URL",
-                "https://api.openai.com/v1",
-            )
+            or os.getenv("XIAOQI_LLM_BASE_URL")
+            or "https://api.deepseek.com"
         ).rstrip("/")
 
         self.model = model or os.getenv(
             "XIAOQI_LLM_MODEL",
-            "gpt-4o-mini",
+            "deepseek-v4-flash",
         )
 
         raw_timeout = (
@@ -58,7 +61,7 @@ class OpenAICompatibleProvider:
 
         if not self.api_key:
             raise RuntimeError(
-                "XIAOQI_LLM_API_KEY is not configured"
+                "XIAOQI_LLM_API_KEY or DEEPSEEK_API_KEY is not configured"
             )
 
         payload = {
@@ -145,9 +148,7 @@ class OpenAICompatibleProvider:
         )
 
 
-def is_response_provider(
-    provider: object,
-) -> bool:
+def is_response_provider(provider: object) -> bool:
     """运行时检查对象是否符合 ResponseProvider 接口。"""
 
     return isinstance(provider, ResponseProvider)
