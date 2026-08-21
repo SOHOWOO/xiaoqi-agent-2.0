@@ -151,6 +151,13 @@ class MemoryManager:
 
         return decision
 
+
+    def get_proactive_interests(self):
+        """获取当前主动关注事项。"""
+
+        return self.proactive_manager.all()
+
+
     def process(
         self,
         memory: MemoryRecord,
