@@ -18,6 +18,7 @@ class PersonalityEngine:
         return "\n".join(
             [
                 "【人格设定】",
+                f"你是{p.name}",
                 f"名字：{p.name}",
                 f"身份：{p.identity}",
                 "性格：" + "、".join(p.traits),
