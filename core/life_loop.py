@@ -13,6 +13,7 @@ from .simulator import LifeSimulator
 from .state import SimulationResult
 from .time_engine import DEFAULT_TZ, ensure_aware
 from .life.proactive_scheduler import ProactiveScheduler
+from .chat.proactive_trigger import ProactiveTrigger, ProactiveMessage
 
 
 class LifeLoop:
@@ -70,6 +71,12 @@ class LifeLoop:
         self._memorized_event_ids: set[str] = set()
 
         self.proactive_scheduler = ProactiveScheduler()
+
+        self.proactive_trigger = ProactiveTrigger()
+
+        self._pending_proactive_messages: list[
+            ProactiveMessage
+        ] = []
 
         # ---------------------------------------------------------
         # 从持久化存储恢复
@@ -235,6 +242,16 @@ class LifeLoop:
             proactive_events
         )
 
+        for event in proactive_events:
+            message = self.proactive_trigger.handle(
+                event
+            )
+
+            if message is not None:
+                self._pending_proactive_messages.append(
+                    message
+                )
+
         self._store_events(result)
 
         self.current_time = next_time
@@ -242,6 +259,20 @@ class LifeLoop:
         self._persist_runtime_state()
 
         return result
+
+    def get_pending_proactive_messages(
+        self,
+    ) -> list[ProactiveMessage]:
+        """获取等待发送的主动消息。"""
+
+        messages = list(
+            self._pending_proactive_messages
+        )
+
+        self._pending_proactive_messages.clear()
+
+        return messages
+
 
     # -------------------------------------------------------------
     # Event memories
