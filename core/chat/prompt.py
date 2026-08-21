@@ -79,6 +79,24 @@ class ChatPromptBuilder:
         if memory_text:
             sections.append(memory_text)
 
+        proactive_messages = getattr(
+            result,
+            "proactive_messages",
+            [],
+        )
+
+        if proactive_messages:
+            sections.append(
+                "【主动关心事项】\n"
+                + "\n".join(
+                    [
+                        f"- {msg.content}"
+                        for msg in proactive_messages
+                        if msg is not None
+                    ]
+                )
+            )
+
         proactive_manager = getattr(
             getattr(result, "life_state", None),
             "proactive_manager",
