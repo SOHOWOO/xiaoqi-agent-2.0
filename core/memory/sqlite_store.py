@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from datetime import datetime, time
 from pathlib import Path
 from typing import List
@@ -24,9 +25,11 @@ class SQLiteMemoryStore:
             )
 
         self._connection = sqlite3.connect(
-            str(self.db_path)
+            str(self.db_path),
+            check_same_thread=False,
         )
         self._connection.row_factory = sqlite3.Row
+        self._lock = threading.RLock()
 
         self._initialize()
 
