@@ -16,6 +16,7 @@ from .state_analyzer import ConversationStateAnalyzer
 from ..relationship import RelationshipEngine
 from .proactive_trigger import ProactiveTrigger
 from .proactive_bridge import ProactiveBridge
+from ..life.proactive_scheduler import ProactiveScheduler
 
 
 class ChatService:
@@ -43,6 +44,7 @@ class ChatService:
         )
 
         self.proactive_bridge = ProactiveBridge()
+        self.proactive_scheduler = ProactiveScheduler()
 
         self.memory_manager = (
             memory_manager
