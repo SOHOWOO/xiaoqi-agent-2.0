@@ -51,10 +51,6 @@ class ChatService:
 
         self.response_provider = response_provider
 
-        from .state import ConversationState
-
-        self.conversation_state = ConversationState()
-
     def handle_message(
         self,
         text: str,
@@ -97,7 +93,13 @@ class ChatService:
 
         prompt = self.prompt_builder.build(result)
 
-        return self.response_provider.generate(prompt)
+        response = self.response_provider.generate(prompt)
+
+        self.conversation_state.update_assistant_message(
+            response
+        )
+
+        return response
 
     def handle_and_respond(
         self,
