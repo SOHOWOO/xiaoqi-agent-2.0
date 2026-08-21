@@ -13,6 +13,7 @@ from .models import ChatResult
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
 from .state_analyzer import ConversationStateAnalyzer
+from .proactive_bridge import ProactiveBridge
 
 
 class ChatService:
@@ -32,6 +33,7 @@ class ChatService:
         from .state import ConversationState
         self.conversation_state = ConversationState()
         self.state_analyzer = ConversationStateAnalyzer()
+        self.proactive_bridge = ProactiveBridge()
 
         self.memory_manager = (
             memory_manager
@@ -71,6 +73,11 @@ class ChatService:
         self.state_analyzer.analyze(
             text,
             self.conversation_state,
+        )
+
+        self.proactive_bridge.register_from_text(
+            text,
+            self.life_loop,
         )
 
         memory_context = self.memory_context_builder.build(
