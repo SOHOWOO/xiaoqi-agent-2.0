@@ -49,7 +49,7 @@ class ChatService:
         self.memory_manager = (
             memory_manager
             if memory_manager is not None
-            else MemoryManager(self.life_loop.memory_store)
+            else self.life_loop.memory_manager
         )
 
         if self.memory_manager.store is not self.life_loop.memory_store:
