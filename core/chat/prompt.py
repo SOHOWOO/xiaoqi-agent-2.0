@@ -6,6 +6,7 @@ from ..personality import (
     PersonalityEngine,
 )
 from ..relationship import RelationshipEngine
+from .state import ConversationState
 
 
 class ChatPromptBuilder:
@@ -15,6 +16,7 @@ class ChatPromptBuilder:
         self,
         personality_engine: PersonalityEngine | None = None,
         relationship_engine: RelationshipEngine | None = None,
+        conversation_state: ConversationState | None = None,
     ):
         self.personality_engine = (
             personality_engine
@@ -28,6 +30,12 @@ class ChatPromptBuilder:
             relationship_engine
             if relationship_engine is not None
             else RelationshipEngine()
+        )
+
+        self.conversation_state = (
+            conversation_state
+            if conversation_state is not None
+            else ConversationState()
         )
 
     def build(
@@ -44,6 +52,20 @@ class ChatPromptBuilder:
 
         sections.append(
             self.relationship_engine.build_context()
+        )
+
+        sections.append(
+            "【对话状态】\n"
+            f"- 对话轮数：{self.conversation_state.turn_count}\n"
+            f"- 当前情绪环境：{self.conversation_state.emotional_context}\n"
+            f"- 最近主题：{self.conversation_state.topics}"
+        )
+
+        sections.append(
+            "【对话状态】\n"
+            f"- 对话轮数：{self.conversation_state.turn_count}\n"
+            f"- 最近话题：{', '.join(self.conversation_state.topics)}\n"
+            f"- 用户情绪：{self.conversation_state.emotional_context}"
         )
 
         sections.append(
