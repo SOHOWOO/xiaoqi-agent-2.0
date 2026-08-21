@@ -32,6 +32,9 @@ class MemoryManager:
     def __init__(self, store: MemoryStore):
         self.store = store
 
+        from .proactive import ProactiveInterestManager
+        self.proactive_manager = ProactiveInterestManager()
+
     def decide(
         self,
         memory: MemoryRecord,
@@ -119,6 +122,10 @@ class MemoryManager:
 
         if decision.action == MemoryAction.ADD:
             self.store.add(memory)
+
+            self.proactive_manager.register(
+                memory
+            )
 
         return decision
 
