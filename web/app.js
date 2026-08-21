@@ -162,4 +162,5 @@ addMessage(
 loadStatus();
 input.focus();
 
-setInterval(loadStatus, 5000);\nsetInterval(loadProactive, 5000);
+setInterval(loadStatus, 5000);
+setInterval(loadProactive, 5000);
