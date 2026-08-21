@@ -13,6 +13,7 @@ from .models import ChatResult
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
 from .state_analyzer import ConversationStateAnalyzer
+from ..relationship import RelationshipEngine
 from .proactive_trigger import ProactiveTrigger
 from .proactive_bridge import ProactiveBridge
 
@@ -34,7 +35,13 @@ class ChatService:
         from .state import ConversationState
         self.conversation_state = ConversationState()
         self.state_analyzer = ConversationStateAnalyzer()
-        self.proactive_trigger = ProactiveTrigger()
+
+        self.relationship_engine = RelationshipEngine()
+
+        self.proactive_trigger = ProactiveTrigger(
+            relationship_engine=self.relationship_engine
+        )
+
         self.proactive_bridge = ProactiveBridge()
 
         self.memory_manager = (
@@ -50,7 +57,8 @@ class ChatService:
 
         if prompt_builder is None:
             self.prompt_builder = ChatPromptBuilder(
-                conversation_state=self.conversation_state
+                conversation_state=self.conversation_state,
+                relationship_engine=self.relationship_engine,
             )
         else:
             self.prompt_builder = prompt_builder
