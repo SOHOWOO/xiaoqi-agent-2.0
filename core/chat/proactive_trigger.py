@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..life.proactive_engine import ProactiveEvent
+from ..events import SimulationEvent
 from ..relationship import RelationshipEngine
 
 
@@ -39,20 +40,31 @@ class ProactiveTrigger:
 
         return ProactiveMessage(
             content=message,
-            source_interest_id=(
-                event.interest.interest_id
+            source_interest_id=getattr(
+                getattr(event, "interest", None),
+                "interest_id",
+                getattr(event, "slot_id", "unknown"),
             ),
         )
 
 
     def _build_message(
         self,
-        event: ProactiveEvent,
+        event,
     ) -> str:
 
         state = self.relationship_engine.state
 
-        topic = event.interest.content
+        interest = getattr(event, "interest", None)
+
+        if interest is not None:
+            topic = interest.content
+        else:
+            topic = getattr(
+                event,
+                "slot_id",
+                "最近的事情",
+            )
 
 
         if state.intimacy >= 0.7:
