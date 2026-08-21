@@ -64,6 +64,35 @@ async function loadStatus() {
   }
 }
 
+
+async function loadProactive() {
+  try {
+    const response = await fetch("/api/proactive");
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = await response.json();
+
+    if (!data.messages) {
+      return;
+    }
+
+    data.messages.forEach((msg) => {
+      if (msg.content) {
+        addMessage(
+          "assistant",
+          msg.content,
+        );
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function sendMessage(text) {
   sendButton.disabled = true;
   input.disabled = true;
@@ -133,4 +162,4 @@ addMessage(
 loadStatus();
 input.focus();
 
-setInterval(loadStatus, 5000);
+setInterval(loadStatus, 5000);\nsetInterval(loadProactive, 5000);

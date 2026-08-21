@@ -105,6 +105,19 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
+
+        if path == "/api/proactive":
+            RUNTIME.advance()
+
+            self._send_json(
+                {
+                    "messages": (
+                        RUNTIME.proactive_messages()
+                    )
+                }
+            )
+            return
+
         if path == "/api/status":
             RUNTIME.advance()
 

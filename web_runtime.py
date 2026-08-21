@@ -132,6 +132,22 @@ class WebRuntime:
         with self._lock:
             return self.chat.respond(result)
 
+
+    def proactive_messages(self) -> list[dict]:
+        with self._lock:
+            messages = (
+                self.life_loop
+                .get_pending_proactive_messages()
+            )
+
+            return [
+                {
+                    "content": msg.content,
+                }
+                for msg in messages
+                if msg is not None
+            ]
+
     def memory_counts(self) -> dict[str, int]:
         with self._lock:
             store = self.life_loop.memory_store
