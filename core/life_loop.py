@@ -12,6 +12,7 @@ from .memory import (
 from .simulator import LifeSimulator
 from .state import SimulationResult
 from .time_engine import DEFAULT_TZ, ensure_aware
+from .life.proactive_scheduler import ProactiveScheduler
 
 
 class LifeLoop:
@@ -67,6 +68,8 @@ class LifeLoop:
         )
 
         self._memorized_event_ids: set[str] = set()
+
+        self.proactive_scheduler = ProactiveScheduler()
 
         # ---------------------------------------------------------
         # 从持久化存储恢复
@@ -221,6 +224,15 @@ class LifeLoop:
         result = self.simulator.simulate(
             self.current_time,
             next_time,
+        )
+
+        proactive_events = self.proactive_scheduler.tick(
+            self.memory_manager.get_proactive_interests(),
+            next_time,
+        )
+
+        result.events.extend(
+            proactive_events
         )
 
         self._store_events(result)
