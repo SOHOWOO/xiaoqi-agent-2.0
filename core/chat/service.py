@@ -28,6 +28,9 @@ class ChatService:
         self.life_loop = life_loop
         self.memory_context_builder = memory_context_builder
 
+        from .state import ConversationState
+        self.conversation_state = ConversationState()
+
         self.memory_manager = (
             memory_manager
             if memory_manager is not None
@@ -39,13 +42,18 @@ class ChatService:
                 "memory_manager must use the same memory_store"
             )
 
-        self.prompt_builder = (
-            prompt_builder
-            if prompt_builder is not None
-            else ChatPromptBuilder()
-        )
+        if prompt_builder is None:
+            self.prompt_builder = ChatPromptBuilder(
+                conversation_state=self.conversation_state
+            )
+        else:
+            self.prompt_builder = prompt_builder
 
         self.response_provider = response_provider
+
+        from .state import ConversationState
+
+        self.conversation_state = ConversationState()
 
     def handle_message(
         self,
@@ -56,6 +64,11 @@ class ChatService:
 
         if not text.strip():
             raise ValueError("message cannot be empty")
+
+        self.conversation_state.update_user_message(
+            text,
+            self.life_loop.current_time,
+        )
 
         memory_context = self.memory_context_builder.build(
             text,
