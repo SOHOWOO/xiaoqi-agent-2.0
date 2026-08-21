@@ -274,6 +274,21 @@ class LifeLoop:
         return messages
 
 
+    def get_proactive_events(self):
+        """获取当前待触发的主动关注事件。"""
+
+        interests = (
+            self.memory_manager
+            .proactive_manager
+            .all()
+        )
+
+        return self.proactive_scheduler.tick(
+            interests,
+            self.current_time,
+        )
+
+
     # -------------------------------------------------------------
     # Event memories
     # -------------------------------------------------------------
