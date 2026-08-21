@@ -9,6 +9,7 @@ from .policy import (
 )
 from .retriever import MemoryRetriever
 from .store import MemoryStore
+from .sqlite_store import SQLiteMemoryStore
 from .importer import CanonicalMemoryImporter
 from .context import (
     MemoryContext,
@@ -25,6 +26,7 @@ __all__ = [
     "MemorySource",
     "MemoryType",
     "MemoryStore",
+    "SQLiteMemoryStore",
     "MemoryRetriever",
     "CanonicalMemoryImporter",
     "MemoryContext",

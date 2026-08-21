@@ -24,6 +24,7 @@ class LifeLoop:
     - 接收生活事件
     - 将生活事件转换为 MemoryRecord
     - 通过 MemoryManager / Policy 决定是否进入长期记忆
+    - 持久化 / 恢复运行时状态
     """
 
     def __init__(
@@ -36,17 +37,6 @@ class LifeLoop:
         memory_manager: MemoryManager | None = None,
     ):
         self.tz = tz
-
-        self.simulator = LifeSimulator(
-            seed=seed,
-            schedule_config=schedule_config,
-            tz=tz,
-        )
-
-        self.current_time = ensure_aware(
-            start_time,
-            tz,
-        )
 
         self.memory_store = (
             memory_store
@@ -65,9 +55,160 @@ class LifeLoop:
                 "memory_manager must use the same memory_store"
             )
 
+        self.current_time = ensure_aware(
+            start_time,
+            tz,
+        )
+
+        self.simulator = LifeSimulator(
+            seed=seed,
+            schedule_config=schedule_config,
+            tz=tz,
+        )
+
         self._memorized_event_ids: set[str] = set()
 
-    def tick(self, duration: timedelta) -> SimulationResult:
+        # ---------------------------------------------------------
+        # 从持久化存储恢复
+        # ---------------------------------------------------------
+
+        self._restore_runtime_state()
+
+        # 已经写入 SQLite 的 virtual-life memory
+        # 直接作为“已经记忆”的事件恢复。
+        self._restore_memorized_event_ids()
+
+        # LifeSimulator 使用自己的集合防止事件重复产生。
+        # 两者都恢复，避免重启后同一个事件再次出现。
+        self.simulator._emitted_event_keys.update(
+            self._memorized_event_ids
+        )
+
+        self._persist_runtime_state()
+
+    # -------------------------------------------------------------
+    # Persistence
+    # -------------------------------------------------------------
+
+    def _restore_runtime_state(self) -> None:
+        """如果 MemoryStore 支持 runtime state，则恢复它。"""
+
+        loader = getattr(
+            self.memory_store,
+            "load_runtime_state",
+            None,
+        )
+
+        if loader is None:
+            return
+
+        state = loader()
+
+        if state is None:
+            return
+
+        saved_time = state.get("current_time")
+
+        if saved_time is not None:
+            saved_time = ensure_aware(
+                saved_time,
+                self.tz,
+            )
+
+            self.current_time = saved_time
+
+            self.simulator.life_state.current_time = (
+                saved_time
+            )
+
+        self.simulator.life_state.current_slot_id = (
+            state.get("current_slot_id")
+        )
+
+        self.simulator.life_state.current_activity = (
+            state.get("current_activity")
+        )
+
+        if state.get("energy") is not None:
+            self.simulator.life_state.energy = float(
+                state["energy"]
+            )
+
+        if state.get("fatigue") is not None:
+            self.simulator.life_state.fatigue = float(
+                state["fatigue"]
+            )
+
+        last_interaction = state.get(
+            "last_user_interaction_at"
+        )
+
+        if last_interaction is not None:
+            self.simulator.interaction_state.last_user_interaction_at = (
+                ensure_aware(
+                    last_interaction,
+                    self.tz,
+                )
+            )
+
+    def _restore_memorized_event_ids(self) -> None:
+        """从已有 VIRTUAL_LIFE memory 恢复事件去重状态。"""
+
+        for memory in self.memory_store.by_type(
+            MemoryType.VIRTUAL_LIFE
+        ):
+            prefix = "event:"
+
+            if not memory.memory_id.startswith(prefix):
+                continue
+
+            event_id = memory.memory_id[
+                len(prefix):
+            ]
+
+            if event_id:
+                self._memorized_event_ids.add(
+                    event_id
+                )
+
+    def _persist_runtime_state(self) -> None:
+        """保存当前运行时状态。
+
+        普通 MemoryStore 没有这个 API，因此不会影响
+        原有的内存版 LifeLoop。
+        """
+
+        saver = getattr(
+            self.memory_store,
+            "save_runtime_state",
+            None,
+        )
+
+        if saver is None:
+            return
+
+        state = self.simulator.life_state
+        interaction = self.simulator.interaction_state
+
+        saver(
+            current_time=self.current_time,
+            current_slot_id=state.current_slot_id,
+            current_activity=state.current_activity,
+            energy=state.energy,
+            fatigue=state.fatigue,
+            last_user_interaction_at=(
+                interaction.last_user_interaction_at
+            ),
+        )
+
+    # -------------------------------------------------------------
+    # Simulation
+    # -------------------------------------------------------------
+
+    def tick(
+        self,
+        duration: timedelta,
+    ) -> SimulationResult:
         """让小七向前生活一段时间。"""
 
         if duration.total_seconds() <= 0:
@@ -86,7 +227,13 @@ class LifeLoop:
 
         self.current_time = next_time
 
+        self._persist_runtime_state()
+
         return result
+
+    # -------------------------------------------------------------
+    # Event memories
+    # -------------------------------------------------------------
 
     def _store_events(
         self,
@@ -120,6 +267,10 @@ class LifeLoop:
             # 只有真正进入 MemoryStore 的事件才标记为已记忆。
             if decision.action == "add":
                 self._memorized_event_ids.add(
+                    event.event_id
+                )
+
+                self.simulator._emitted_event_keys.add(
                     event.event_id
                 )
 
