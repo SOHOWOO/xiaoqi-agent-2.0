@@ -13,6 +13,7 @@ from .models import ChatResult
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
 from .state_analyzer import ConversationStateAnalyzer
+from .proactive_trigger import ProactiveTrigger
 from .proactive_bridge import ProactiveBridge
 
 
@@ -33,6 +34,7 @@ class ChatService:
         from .state import ConversationState
         self.conversation_state = ConversationState()
         self.state_analyzer = ConversationStateAnalyzer()
+        self.proactive_trigger = ProactiveTrigger()
         self.proactive_bridge = ProactiveBridge()
 
         self.memory_manager = (
@@ -87,6 +89,13 @@ class ChatService:
 
         self._store_user_message(text)
 
+        proactive_messages = []
+
+        for event in self.life_loop.get_proactive_events():
+            message = self.proactive_trigger.handle(event)
+
+            proactive_messages.append(message)
+
         return ChatResult(
             user_message=text,
             memory_context=memory_context,
@@ -98,6 +107,7 @@ class ChatService:
                 .proactive_manager
                 .all()
             ),
+            proactive_messages=proactive_messages,
         )
 
     def respond(

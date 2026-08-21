@@ -26,6 +26,7 @@ class ChatResult:
     interaction_state: InteractionState
 
     proactive_interests: list = None
+    proactive_messages: list = None
 
     def memory_text(self) -> str:
         """返回适合直接提供给 LLM 的记忆文本。"""

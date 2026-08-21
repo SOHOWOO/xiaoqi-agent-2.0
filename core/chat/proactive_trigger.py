@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..events import SimulationEvent
+from ..life.proactive_engine import ProactiveEvent
 
 
 @dataclass(frozen=True)
@@ -10,7 +10,7 @@ class ProactiveMessage:
     """主动消息。"""
 
     content: str
-    source_event_id: str
+    source_interest_id: str
 
 
 class ProactiveTrigger:
@@ -18,15 +18,12 @@ class ProactiveTrigger:
 
     def handle(
         self,
-        event: SimulationEvent,
-    ) -> ProactiveMessage | None:
-        if event.event_type != "proactive_interest":
-            return None
+        event: ProactiveEvent,
+    ) -> ProactiveMessage:
 
         return ProactiveMessage(
-            content=(
-                "我记得你之前提到过这件事，"
-                "最近进展怎么样了？"
+            content=event.message,
+            source_interest_id=(
+                event.interest.interest_id
             ),
-            source_event_id=event.event_id,
         )
