@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import math
+from datetime import datetime, timezone
 from typing import List
 
 from .models import MemoryRecord, MemoryType
@@ -8,25 +10,14 @@ from .store import MemoryStore
 
 
 class MemoryRetriever:
-    """小七的基础记忆检索器。
-
-    支持：
-    - 直接关键词查询
-    - 中文自然语言查询
-    - Canonical 优先级
-    - Interaction / Virtual Life 检索
-    """
+    """小七增强记忆检索器。"""
 
     _TYPE_PRIORITY = {
-        MemoryType.CANONICAL: 3,
-        MemoryType.INTERACTION: 2,
-        MemoryType.VIRTUAL_LIFE: 1,
+        MemoryType.CANONICAL: 3.0,
+        MemoryType.INTERACTION: 2.0,
+        MemoryType.VIRTUAL_LIFE: 1.0,
     }
 
-    # 只放真正的功能词。
-    #
-    # 注意：
-    # “小七”是实体名称，绝对不能作为停用词。
     _STOP_WORDS = {
         "我的",
         "我",
@@ -49,78 +40,121 @@ class MemoryRetriever:
         "是",
     }
 
-    def __init__(self, store: MemoryStore):
+    def __init__(
+        self,
+        store: MemoryStore,
+    ):
         self.store = store
 
-    def _extract_keywords(self, query: str) -> set[str]:
-        """从中文/英文自然语言查询中提取轻量关键词。"""
-
-        query = query.strip().lower()
+    def _extract_keywords(
+        self,
+        query: str,
+    ) -> set[str]:
+        query = query.lower().strip()
 
         if not query:
             return set()
 
         keywords: set[str] = set()
 
-        # ---------------------------------------------------------
-        # 1. 空格分词
-        # ---------------------------------------------------------
         for word in query.split():
             word = word.strip(
                 "，。！？；：、,.!?;:"
             )
-
             if word and word not in self._STOP_WORDS:
                 keywords.add(word)
 
-        # ---------------------------------------------------------
-        # 2. 中文连续文本
-        # ---------------------------------------------------------
-        chinese_segments = re.findall(
+        segments = re.findall(
             r"[\u4e00-\u9fff]+",
             query,
         )
 
-        for segment in chinese_segments:
-
-            # 整个连续片段本身也是一个候选关键词。
+        for segment in segments:
             if segment not in self._STOP_WORDS:
                 keywords.add(segment)
 
-            # 提取 2 字以上连续片段。
-            for size in range(2, len(segment) + 1):
-                for start in range(
-                    len(segment) - size + 1
-                ):
-                    keyword = segment[
-                        start:start + size
-                    ]
+            for size in range(2, len(segment)+1):
+                for i in range(len(segment)-size+1):
+                    part = segment[i:i+size]
+                    if part not in self._STOP_WORDS:
+                        keywords.add(part)
 
-                    if keyword not in self._STOP_WORDS:
-                        keywords.add(keyword)
-
-        # ---------------------------------------------------------
-        # 3. 英文 / 数字
-        # ---------------------------------------------------------
-        english_parts = re.findall(
+        english = re.findall(
             r"[a-z0-9_]+",
             query,
         )
 
-        for part in english_parts:
-            if part not in self._STOP_WORDS:
-                keywords.add(part)
+        keywords.update(
+            x for x in english
+            if x not in self._STOP_WORDS
+        )
 
         return keywords
+
+    def _recency_score(
+        self,
+        memory: MemoryRecord,
+    ) -> float:
+        """越新的记忆越重要。"""
+
+        now = datetime.now(
+            timezone.utc
+        )
+
+        created = memory.created_at
+
+        if created.tzinfo is None:
+            created = created.replace(
+                tzinfo=timezone.utc
+            )
+
+        days = max(
+            0,
+            (now - created.astimezone(timezone.utc)).days
+        )
+
+        return math.exp(
+            -days / 180
+        )
+
+    def _score(
+        self,
+        query_keywords: set[str],
+        memory: MemoryRecord,
+    ) -> float:
+
+        content = memory.content.lower()
+
+        hits = sum(
+            1
+            for k in query_keywords
+            if k in content
+        )
+
+        if hits == 0:
+            return 0.0
+
+        keyword_score = hits / max(
+            len(query_keywords),
+            1,
+        )
+
+        return (
+            keyword_score * 5
+            + self._TYPE_PRIORITY[
+                memory.memory_type
+            ]
+            + memory.importance * 2
+            + self._recency_score(memory)
+        )
 
     def search(
         self,
         query: str,
         limit: int = 5,
     ) -> List[MemoryRecord]:
-        """根据关键词寻找相关记忆。"""
 
-        if not query.strip() or limit <= 0:
+        if not query.strip():
             return []
 
         keywords = self._extract_keywords(query)
@@ -128,17 +162,12 @@ class MemoryRetriever:
         if not keywords:
             return []
 
-        scored: list[
-            tuple[int, MemoryRecord]
-        ] = []
+        scored = []
 
         for memory in self.store.all():
-            content = memory.content.lower()
-
-            score = sum(
-                1
-                for keyword in keywords
-                if keyword in content
+            score = self._score(
+                keywords,
+                memory,
             )
 
             if score > 0:
@@ -146,21 +175,8 @@ class MemoryRetriever:
                     (score, memory)
                 )
 
-        # 排序规则：
-        #
-        # 1. 匹配关键词越多越优先
-        # 2. Canonical > Interaction > Virtual Life
-        # 3. importance 越高越优先
-        # 4. 创建时间较早的稳定排后
         scored.sort(
-            key=lambda item: (
-                -item[0],
-                -self._TYPE_PRIORITY[
-                    item[1].memory_type
-                ],
-                -item[1].importance,
-                item[1].created_at,
-            )
+            key=lambda x: -x[0]
         )
 
         return [
