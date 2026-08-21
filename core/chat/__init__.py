@@ -12,3 +12,5 @@ __all__ = [
     "OpenAICompatibleProvider",
     "ChatService",
 ]
+
+from .state import ConversationState

@@ -12,6 +12,7 @@ from ..memory.importance import estimate_importance
 from .models import ChatResult
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
+from .state_analyzer import ConversationStateAnalyzer
 
 
 class ChatService:
@@ -30,6 +31,7 @@ class ChatService:
 
         from .state import ConversationState
         self.conversation_state = ConversationState()
+        self.state_analyzer = ConversationStateAnalyzer()
 
         self.memory_manager = (
             memory_manager
@@ -64,6 +66,11 @@ class ChatService:
         self.conversation_state.update_user_message(
             text,
             self.life_loop.current_time,
+        )
+
+        self.state_analyzer.analyze(
+            text,
+            self.conversation_state,
         )
 
         memory_context = self.memory_context_builder.build(
