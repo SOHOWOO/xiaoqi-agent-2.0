@@ -13,6 +13,7 @@ from .simulator import LifeSimulator
 from .state import SimulationResult
 from .time_engine import DEFAULT_TZ, ensure_aware
 from .life.proactive_scheduler import ProactiveScheduler
+from .life.proactive_engine import ProactiveEngine
 from .chat.proactive_trigger import ProactiveTrigger, ProactiveMessage
 
 
@@ -71,6 +72,7 @@ class LifeLoop:
         self._memorized_event_ids: set[str] = set()
 
         self.proactive_scheduler = ProactiveScheduler()
+        self.proactive_engine = ProactiveEngine()
 
         self.proactive_trigger = ProactiveTrigger()
 
@@ -233,9 +235,10 @@ class LifeLoop:
             next_time,
         )
 
-        proactive_events = self.proactive_scheduler.tick(
+        proactive_events = self.proactive_engine.evaluate(
             self.memory_manager.get_proactive_interests(),
             next_time,
+            life_state=self.life_state,
         )
 
         result.events.extend(
@@ -283,9 +286,10 @@ class LifeLoop:
             .all()
         )
 
-        return self.proactive_scheduler.tick(
+        return self.proactive_engine.evaluate(
             interests,
             self.current_time,
+            life_state=self.life_state,
         )
 
 

@@ -126,7 +126,14 @@ class WebRuntime:
     def handle_message(self, message: str):
         with self._lock:
             self.advance()
-            return self.chat.handle_message(message)
+
+            result = self.chat.handle_message(message)
+
+            for msg in result.proactive_messages:
+                if msg is not None:
+                    self.life_loop._pending_proactive_messages.append(msg)
+
+            return result
 
     def respond(self, result) -> str:
         with self._lock:
@@ -135,7 +142,10 @@ class WebRuntime:
 
     def proactive_messages(self) -> list[dict]:
         with self._lock:
-            messages = (
+            messages = []
+
+            # LifeLoop 产生的主动消息
+            messages.extend(
                 self.life_loop
                 .get_pending_proactive_messages()
             )
