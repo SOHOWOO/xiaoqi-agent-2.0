@@ -79,30 +79,6 @@ class ChatPromptBuilder:
         if memory_text:
             sections.append(memory_text)
 
-        proactive_manager = getattr(
-            getattr(result, "life_state", None),
-            "proactive_manager",
-            None,
-        )
-
-        if proactive_manager is not None:
-            interests = proactive_manager.all()
-
-            if interests:
-                proactive_text = (
-                    "【主动关注】\\n"
-                    + "\\n".join(
-                        [
-                            f"- {item.content}"
-                            for item in interests[-5:]
-                        ]
-                    )
-                )
-
-                sections.append(
-                    proactive_text
-                )
-
         sections.append(
             "【当前生活状态】\n"
             f"- 当前时间：{result.life_state.current_time}\n"

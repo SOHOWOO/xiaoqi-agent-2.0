@@ -92,6 +92,12 @@ class ChatService:
             memory_context=memory_context,
             life_state=self.life_loop.life_state,
             interaction_state=self.life_loop.interaction_state,
+            proactive_interests=(
+                self.life_loop
+                .memory_manager
+                .proactive_manager
+                .all()
+            ),
         )
 
     def respond(
