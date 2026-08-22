@@ -3,6 +3,10 @@ from __future__ import annotations
 import threading
 from datetime import datetime
 
+from core.avatar import (
+    AvatarController,
+    WebSocketAvatarBridge,
+)
 from core.chat import ChatService, OpenAICompatibleProvider
 from core.diary import DiaryEngine, SQLiteDiaryStore
 from core.emotion import EmotionEngine, SQLiteEmotionStore
@@ -37,6 +41,9 @@ class WebRuntime:
         *,
         simulation_minutes_per_real_second: float = 1 / 60,
         load_canonical: bool = True,
+        avatar_websocket: bool = False,
+        avatar_host: str = "127.0.0.1",
+        avatar_port: int = 0,
     ) -> None:
         if simulation_minutes_per_real_second <= 0:
             raise ValueError(
@@ -130,6 +137,26 @@ class WebRuntime:
             memory_context_builder=context_builder,
             response_provider=OpenAICompatibleProvider(),
         )
+
+        # ---------------------------------------------------------
+        # Avatar 表现层（可选，默认关闭以保持隔离）
+        # ---------------------------------------------------------
+
+        self.avatar_controller = None
+        self.avatar_bridge = None
+
+        if avatar_websocket:
+            self.avatar_bridge = (
+                WebSocketAvatarBridge(
+                    host=avatar_host,
+                    port=avatar_port,
+                ).start()
+            )
+
+            self.avatar_controller = AvatarController(
+                self.life_loop.event_bus,
+                bridge=self.avatar_bridge,
+            )
 
     def _load_canonical_memories(self) -> None:
         importer = CanonicalMemoryImporter(
@@ -313,3 +340,6 @@ class WebRuntime:
             self.neuro_store.close()
             self.emotion_store.close()
             self.diary_store.close()
+
+            if self.avatar_bridge is not None:
+                self.avatar_bridge.stop()

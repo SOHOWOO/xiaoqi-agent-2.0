@@ -68,6 +68,8 @@ def map_neurochemical_to_emotions(
             + 0.3 * n
         ),
         calm=_clamp(
-            0.5 * (1.0 - c) + 0.5 * s
+            0.3 * (1.0 - c)
+            + 0.4 * s
+            + 0.3 * (1.0 - d)
         ),
     )

@@ -1,3 +1,12 @@
+from life_lab.scenarios.avatar_absence import (
+    AvatarAbsenceScenario,
+)
+from life_lab.scenarios.avatar_consistency import (
+    AvatarConsistencyScenario,
+)
+from life_lab.scenarios.avatar_relation import (
+    AvatarRelationScenario,
+)
 from life_lab.scenarios.conflict_recovery import (
     ConflictRecoveryScenario,
 )
@@ -16,6 +25,9 @@ SCENARIOS = {
     "002": HappyGrowthScenario,
     "003": ConflictRecoveryScenario,
     "004": ProactiveTestScenario,
+    "008": AvatarConsistencyScenario,
+    "009": AvatarAbsenceScenario,
+    "010": AvatarRelationScenario,
 }
 
 __all__ = [
@@ -24,4 +36,7 @@ __all__ = [
     "HappyGrowthScenario",
     "ConflictRecoveryScenario",
     "ProactiveTestScenario",
+    "AvatarConsistencyScenario",
+    "AvatarAbsenceScenario",
+    "AvatarRelationScenario",
 ]
