@@ -12,3 +12,13 @@ __all__ = [
     "AudioOutput",
     "VoicePipeline",
 ]
+
+from .providers import (
+    WhisperRecognizer,
+    FastRTCInput,
+)
+
+__all__.extend([
+    "WhisperRecognizer",
+    "FastRTCInput",
+])
