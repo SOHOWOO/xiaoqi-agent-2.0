@@ -9,6 +9,7 @@ from core.emotion import EmotionEngine, SQLiteEmotionStore
 from core.life_loop import LifeLoop
 from core.memory import (
     MemoryContextBuilder,
+    MemoryLifecycle,
     MemoryRetriever,
     SQLiteMemoryStore,
 )
@@ -79,6 +80,10 @@ class WebRuntime:
             memory_store=self.memory_store,
         )
 
+        memory_lifecycle = MemoryLifecycle(
+            self.memory_store
+        )
+
         now = datetime.now(DEFAULT_TZ)
 
         self.life_loop = LifeLoop(
@@ -88,6 +93,7 @@ class WebRuntime:
             neurochemical_engine=neurochemical,
             emotion_engine=emotion,
             diary_engine=diary,
+            memory_lifecycle=memory_lifecycle,
         )
 
         self._restore_relationship()

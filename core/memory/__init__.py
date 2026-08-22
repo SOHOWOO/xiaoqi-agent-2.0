@@ -28,6 +28,7 @@ from .consolidation import (
     jaccard_similarity,
 )
 from .conflict import MemoryConflictResolver
+from .lifecycle import MemoryLifecycle
 
 __all__ = [
     "MemoryRecord",
@@ -47,6 +48,7 @@ __all__ = [
     "RelationshipMemory",
     "MemoryConsolidator",
     "MemoryConflictResolver",
+    "MemoryLifecycle",
     "jaccard_similarity",
     "can_modify",
     "is_long_term_candidate",

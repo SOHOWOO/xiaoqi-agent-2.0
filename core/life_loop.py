@@ -6,6 +6,7 @@ from .diary import DiaryEngine
 from .diary.persistence import SQLiteDiaryStore
 from .emotion import EmotionEngine
 from .memory import (
+    MemoryLifecycle,
     MemoryManager,
     MemoryRecord,
     MemorySource,
@@ -55,6 +56,7 @@ class LifeLoop:
         diary_engine: DiaryEngine | None = None,
         proactive_engine: UnifiedProactiveEngine | None = None,
         relationship_engine: RelationshipEngine | None = None,
+        memory_lifecycle: MemoryLifecycle | None = None,
     ):
         self.tz = tz
 
@@ -123,6 +125,8 @@ class LifeLoop:
             if relationship_engine is not None
             else RelationshipEngine()
         )
+
+        self.memory_lifecycle = memory_lifecycle
 
         # ---------------------------------------------------------
         # 从持久化存储恢复
@@ -322,6 +326,9 @@ class LifeLoop:
                 at_time=cursor,
                 result=result,
             )
+
+        if self.memory_lifecycle is not None:
+            self.memory_lifecycle.run(next_time)
 
         self.current_time = next_time
 
