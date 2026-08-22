@@ -6,11 +6,10 @@ from typing import Optional
 from .models import MemoryRecord, MemoryType
 from .policy import can_modify, is_long_term_candidate
 from .store import MemoryStore
+from .memory_router import MemoryRouter
 
 
 class MemoryAction:
-    """Memory Manager 支持的决策动作。"""
-
     ADD = "add"
     UPDATE = "update"
     IGNORE = "ignore"
@@ -19,18 +18,18 @@ class MemoryAction:
 
 @dataclass(frozen=True)
 class MemoryDecision:
-    """Memory Manager 的规则决策结果。"""
-
     action: str
     reason: str
     target_memory_id: Optional[str] = None
+    route: Optional[str] = None
 
 
 class MemoryManager:
-    """Memory Core 的统一记忆决策与写入入口。"""
+    """Memory Core unified entry point for Memory 2.0."""
 
     def __init__(self, store: MemoryStore):
         self.store = store
+        self.router = MemoryRouter()
 
         from .proactive import ProactiveInterestManager
         self.proactive_manager = ProactiveInterestManager()
@@ -40,92 +39,72 @@ class MemoryManager:
         memory: MemoryRecord,
         target_memory: Optional[MemoryRecord] = None,
     ) -> MemoryDecision:
-        """决定一条记忆应该 ADD / UPDATE / IGNORE / REJECT。"""
+        route = self.router.route(
+            str(getattr(memory, "content", "")),
+            int(getattr(memory, "importance", 0)),
+        )
 
-        # ============================================================
-        # 1. 新记忆
-        # ============================================================
         if target_memory is None:
             if memory.memory_type == MemoryType.CANONICAL:
                 return MemoryDecision(
-                    action=MemoryAction.ADD,
-                    reason="canonical new memory",
+                    MemoryAction.ADD,
+                    "canonical new memory",
+                    route=route.channel,
                 )
 
-            if is_long_term_candidate(
-                memory.memory_type,
-                memory.importance,
-            ):
+            if is_long_term_candidate(memory.memory_type, memory.importance):
                 return MemoryDecision(
-                    action=MemoryAction.ADD,
-                    reason="qualified non-canonical new memory",
+                    MemoryAction.ADD,
+                    "qualified long term memory",
+                    route=route.channel,
                 )
 
             return MemoryDecision(
-                action=MemoryAction.IGNORE,
-                reason=(
-                    "non-canonical memory does not qualify "
-                    "for long-term storage"
-                ),
+                MemoryAction.IGNORE,
+                "not qualified for long term storage",
+                route=route.channel,
             )
-
-        # ============================================================
-        # 2. 更新已有记忆
-        # ============================================================
 
         if (
             memory.memory_type == MemoryType.CANONICAL
             and target_memory.memory_type == MemoryType.CANONICAL
         ):
             return MemoryDecision(
-                action=MemoryAction.UPDATE,
-                reason="canonical update of canonical memory",
-                target_memory_id=target_memory.memory_id,
+                MemoryAction.UPDATE,
+                "canonical update",
+                target_memory.memory_id,
+                route.channel,
             )
 
-        if not can_modify(
-            memory.memory_type,
-            target_memory.memory_type,
-        ):
+        if not can_modify(memory.memory_type, target_memory.memory_type):
             return MemoryDecision(
-                action=MemoryAction.REJECT,
-                reason="modification not allowed by policy",
-                target_memory_id=target_memory.memory_id,
+                MemoryAction.REJECT,
+                "modification blocked by policy",
+                target_memory.memory_id,
+                route.channel,
             )
 
-        if is_long_term_candidate(
-            memory.memory_type,
-            memory.importance,
-        ):
+        if is_long_term_candidate(memory.memory_type, memory.importance):
             return MemoryDecision(
-                action=MemoryAction.UPDATE,
-                reason="allowed and qualified update",
-                target_memory_id=target_memory.memory_id,
+                MemoryAction.UPDATE,
+                "qualified update",
+                target_memory.memory_id,
+                route.channel,
             )
 
         return MemoryDecision(
-            action=MemoryAction.IGNORE,
-            reason=(
-                "modification allowed but memory does not qualify "
-                "for long-term"
-            ),
-            target_memory_id=target_memory.memory_id,
+            MemoryAction.IGNORE,
+            "update not important enough",
+            target_memory.memory_id,
+            route.channel,
         )
 
-    def add_if_allowed(
-        self,
-        memory: MemoryRecord,
-    ) -> MemoryDecision:
-        """根据策略决定是否新增记忆。"""
-
+    def add_if_allowed(self, memory: MemoryRecord) -> MemoryDecision:
         decision = self.decide(memory)
 
         if decision.action == MemoryAction.ADD:
             self.store.add(memory)
-
-            self.proactive_manager.register(
-                memory
-            )
+            self.proactive_manager.register(memory)
 
         return decision
 
@@ -134,48 +113,23 @@ class MemoryManager:
         memory: MemoryRecord,
         target_memory: MemoryRecord,
     ) -> MemoryDecision:
-        """根据策略决定是否更新已有记忆。"""
-
-        decision = self.decide(
-            memory,
-            target_memory=target_memory,
-        )
+        decision = self.decide(memory, target_memory)
 
         if decision.action == MemoryAction.UPDATE:
             assert decision.target_memory_id is not None
-
-            self.store.update(
-                decision.target_memory_id,
-                memory,
-            )
+            self.store.update(decision.target_memory_id, memory)
 
         return decision
 
-
     def get_proactive_interests(self):
-        """获取当前主动关注事项。"""
-
         return self.proactive_manager.all()
-
 
     def process(
         self,
         memory: MemoryRecord,
         target_memory: Optional[MemoryRecord] = None,
     ) -> MemoryDecision:
-        """统一处理入口。
-
-        新记忆：
-            process(memory)
-
-        更新：
-            process(memory, target_memory)
-        """
-
         if target_memory is None:
             return self.add_if_allowed(memory)
 
-        return self.update_if_allowed(
-            memory,
-            target_memory,
-        )
+        return self.update_if_allowed(memory, target_memory)
