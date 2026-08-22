@@ -74,7 +74,6 @@ class OpenAICompatibleProvider:
             ],
         }
 
-        print("DEBUG HEADERS KEY:", repr(self.api_key))
         request = Request(
             url=f"{self.base_url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),

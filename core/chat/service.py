@@ -11,6 +11,7 @@ from ..memory import (
 )
 from ..memory.importance import estimate_importance
 from .models import ChatResult
+from .request import ChatRequest, ChatMessage
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
 from .state_analyzer import ConversationStateAnalyzer
@@ -142,7 +143,30 @@ class ChatService:
 
         prompt = self.prompt_builder.build(result)
 
-        response = self.response_provider.generate(prompt)
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content=prompt,
+                )
+            ]
+        )
+
+        import inspect
+
+        generate = self.response_provider.generate
+
+        parameter = next(
+            iter(
+                inspect.signature(generate).parameters.values()
+            ),
+            None,
+        )
+
+        if parameter is not None and parameter.annotation is str:
+            response = generate(prompt)
+        else:
+            response = generate(request)
 
         self.conversation_state.update_assistant_message(
             response
