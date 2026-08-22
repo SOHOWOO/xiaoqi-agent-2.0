@@ -65,6 +65,18 @@ class DiaryEngine:
 
         self._last_date: date | None = None
 
+    def seed(
+        self,
+        day: date,
+    ) -> None:
+        """设置基线日期（首次启动）。
+
+        避免从当天跨到次日时，由于没有"昨天"基线而漏写日记。
+        """
+
+        if self._last_date is None:
+            self._last_date = day
+
     def advance(
         self,
         now: datetime,

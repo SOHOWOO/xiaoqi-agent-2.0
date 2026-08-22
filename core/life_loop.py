@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from .bus import EventBus, EventType
 from .diary import DiaryEngine
 from .diary.persistence import SQLiteDiaryStore
 from .emotion import EmotionEngine
@@ -57,6 +58,7 @@ class LifeLoop:
         proactive_engine: UnifiedProactiveEngine | None = None,
         relationship_engine: RelationshipEngine | None = None,
         memory_lifecycle: MemoryLifecycle | None = None,
+        event_bus: EventBus | None = None,
     ):
         self.tz = tz
 
@@ -114,6 +116,8 @@ class LifeLoop:
             )
         )
 
+        self.diary.seed(self.current_time.date())
+
         self.unified_proactive = (
             proactive_engine
             if proactive_engine is not None
@@ -127,6 +131,14 @@ class LifeLoop:
         )
 
         self.memory_lifecycle = memory_lifecycle
+
+        self.event_bus = (
+            event_bus
+            if event_bus is not None
+            else EventBus()
+        )
+
+        self._last_dominant_emotion: str | None = None
 
         # ---------------------------------------------------------
         # 从持久化存储恢复
@@ -328,7 +340,21 @@ class LifeLoop:
             )
 
         if self.memory_lifecycle is not None:
-            self.memory_lifecycle.run(next_time)
+            consolidated = self.memory_lifecycle.run(
+                next_time
+            )
+
+            if consolidated:
+                self.event_bus.publish(
+                    EventType.MEMORY_CONSOLIDATED.value,
+                    {
+                        "count": len(consolidated),
+                        "contents": [
+                            m.content
+                            for m in consolidated
+                        ],
+                    },
+                )
 
         self.current_time = next_time
 
@@ -355,7 +381,7 @@ class LifeLoop:
 
         self.relationship_engine.tick(at_time)
 
-        self.diary.advance(
+        diary_entry = self.diary.advance(
             at_time,
             emotion_state=self.emotion.state(),
             life_state=self.life_state,
@@ -363,6 +389,11 @@ class LifeLoop:
                 event.event_type
                 for event in result.events
             ],
+        )
+
+        self._publish_engine_events(
+            at_time,
+            diary_entry=diary_entry,
         )
 
         # ---------------------------------------------------------
@@ -404,7 +435,73 @@ class LifeLoop:
                 )
             )
 
-        return result
+            self.event_bus.publish(
+                EventType.PROACTIVE_TRIGGERED.value,
+                {
+                    "content": action.content,
+                    "action": (
+                        action.signal.suggested_action
+                    ),
+                    "reason": action.signal.reason,
+                },
+            )
+
+    def _publish_engine_events(
+        self,
+        at_time: datetime,
+        *,
+        diary_entry,
+    ) -> None:
+        """发布情绪 / 神经化学 / 日记 / 状态变化事件。"""
+
+        emotion_state = self.emotion.state()
+
+        dominant = emotion_state.dominant().value
+
+        if (
+            self._last_dominant_emotion is not None
+            and self._last_dominant_emotion != dominant
+        ):
+            self.event_bus.publish(
+                EventType.EMOTION_CHANGE.value,
+                {
+                    "from": self._last_dominant_emotion,
+                    "to": dominant,
+                    "emotion": emotion_state.as_dict(),
+                },
+            )
+
+        self._last_dominant_emotion = dominant
+
+        self.event_bus.publish(
+            EventType.STATE_UPDATE.value,
+            {
+                "simulated_time": at_time.isoformat(),
+                "emotion": emotion_state.as_dict(),
+                "dominant_emotion": dominant,
+                "neurochemical": (
+                    self.neurochemical.state().as_dict()
+                ),
+                "relationship": (
+                    self.relationship_engine
+                    .state
+                    .as_dict()
+                ),
+            },
+        )
+
+        if diary_entry is not None:
+            self.event_bus.publish(
+                EventType.DIARY_WRITTEN.value,
+                {
+                    "date": (
+                        diary_entry.date.isoformat()
+                    ),
+                    "mood_tags": list(
+                        diary_entry.mood_tags
+                    ),
+                },
+            )
 
     def get_pending_proactive_messages(
         self,

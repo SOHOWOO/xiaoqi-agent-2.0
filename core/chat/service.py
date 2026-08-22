@@ -157,6 +157,27 @@ class ChatService:
             now=self.runtime.current_time,
         )
 
+        event_bus = getattr(
+            self.life_loop,
+            "event_bus",
+            None,
+        )
+
+        if event_bus is not None:
+            event_bus.publish(
+                "user_interaction",
+                {
+                    "simulated_time": (
+                        self.runtime.current_time.isoformat()
+                    ),
+                    "relationship": (
+                        self.relationship_engine
+                        .state
+                        .as_dict()
+                    ),
+                },
+            )
+
         interaction = self.runtime.interaction_state
 
         if interaction is not None:
