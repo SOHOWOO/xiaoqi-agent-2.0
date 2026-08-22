@@ -12,6 +12,11 @@ from ..memory import (
 from ..memory.importance import estimate_importance
 from .models import ChatResult
 from .request import ChatRequest, ChatMessage
+from ..llm import (
+    LLMProvider,
+    LLMRequest,
+    LLMMessage,
+)
 from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
 from .state_analyzer import ConversationStateAnalyzer
@@ -31,6 +36,7 @@ class ChatService:
         memory_manager: MemoryManager | None = None,
         prompt_builder: ChatPromptBuilder | None = None,
         response_provider: ResponseProvider | None = None,
+        llm_provider: LLMProvider | None = None,
         runtime: AgentRuntime | None = None,
     ) -> None:
         self.life_loop = life_loop
@@ -76,6 +82,7 @@ class ChatService:
             self.prompt_builder = prompt_builder
 
         self.response_provider = response_provider
+        self.llm_provider = llm_provider
 
     def handle_message(
         self,
@@ -152,21 +159,43 @@ class ChatService:
             ]
         )
 
-        import inspect
+        if self.llm_provider is not None:
+            llm_request = LLMRequest(
+                messages=[
+                    LLMMessage(
+                        role="user",
+                        content=prompt,
+                    )
+                ]
+            )
 
-        generate = self.response_provider.generate
+            llm_response = self.llm_provider.chat(
+                llm_request
+            )
 
-        parameter = next(
-            iter(
-                inspect.signature(generate).parameters.values()
-            ),
-            None,
-        )
+            response = llm_response.content
 
-        if parameter is not None and parameter.annotation is str:
-            response = generate(prompt)
+        elif self.response_provider is not None:
+            import inspect
+
+            generate = self.response_provider.generate
+
+            parameter = next(
+                iter(
+                    inspect.signature(generate).parameters.values()
+                ),
+                None,
+            )
+
+            if parameter is not None and parameter.annotation is str:
+                response = generate(prompt)
+            else:
+                response = generate(request)
+
         else:
-            response = generate(request)
+            raise RuntimeError(
+                "no LLM provider configured"
+            )
 
         self.conversation_state.update_assistant_message(
             response
