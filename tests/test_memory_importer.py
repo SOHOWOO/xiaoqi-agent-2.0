@@ -1,9 +1,20 @@
+from pathlib import Path
+
+import pytest
+
 from core.memory import MemoryStore
 from core.memory.importer import CanonicalMemoryImporter
 from core.memory.models import MemorySource, MemoryType
 
 
 IDENTITY_FILE = "memories/canonical/identity.md.docx"
+
+_CANONICAL_DIR = Path("memories/canonical")
+
+pytestmark = pytest.mark.skipif(
+    not _CANONICAL_DIR.exists(),
+    reason="memories/canonical docx files not present in this checkout",
+)
 
 
 def test_canonical_importer_imports_identity():
