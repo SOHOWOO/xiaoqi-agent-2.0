@@ -6,3 +6,6 @@ __pycache__/
 # Private memory data
 memories/
 *.bak
+
+# Life Lab experiment logs
+logs/
