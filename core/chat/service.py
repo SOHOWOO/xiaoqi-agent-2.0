@@ -149,9 +149,13 @@ class ChatService:
         )
 
     def _on_user_interaction(self) -> None:
-        """用户互动时更新神经化学 / 情绪 / 关系 / 互动时间。"""
+        """用户互动时更新关系 / 神经化学 / 情绪 / 互动时间。"""
 
-        self.relationship_engine.interact()
+        self.relationship_engine.update(
+            "user_interaction",
+            intensity=1.0,
+            now=self.runtime.current_time,
+        )
 
         interaction = self.runtime.interaction_state
 

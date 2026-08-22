@@ -265,10 +265,11 @@ class LifeLoop:
     ) -> SimulationResult:
         """让小七向前生活一段时间。
 
-        大步长（如离线多日）会被内部拆分为 MAX_TICK_STEP 的子步，
-        确保作息状态机、能量 / 疲劳 / 神经化学衰减与跨天边界事件
-        （日记、主动行为）按序正确触发；Simulator 自身的
-        步长不变性保证生活事件不因分段而重复或丢失。
+        两个时间尺度分离：
+        - Simulator：一次性计算生活事件（自身具备步长不变性）
+        - Engine 积分：神经化学 / 情绪 / 关系 / 日记 / 主动行为
+          按 MAX_TICK_STEP 子步推进，确保作息状态机、衰减与
+          跨天边界事件按序正确触发。
         """
 
         if duration.total_seconds() <= 0:
@@ -276,26 +277,17 @@ class LifeLoop:
                 "tick duration must be positive"
             )
 
-        steps = self._split_steps(duration)
-
-        merged = SimulationResult()
-
-        for step in steps:
-            sub = self._tick_step(step)
-            merged.events.extend(sub.events)
-            merged.slots_seen.extend(sub.slots_seen)
-            merged.life_state = sub.life_state
-            merged.interaction_state = sub.interaction_state
+        result = self._advance_once(duration)
 
         self._persist_runtime_state()
 
-        return merged
+        return result
 
     def _split_steps(
         self,
         duration: timedelta,
     ) -> list[timedelta]:
-        """把大步长拆分为不超过 MAX_TICK_STEP 的子步。"""
+        """把时长拆分为不超过 MAX_TICK_STEP 的引擎积分子步。"""
 
         steps: list[timedelta] = []
 
@@ -308,11 +300,11 @@ class LifeLoop:
 
         return steps
 
-    def _tick_step(
+    def _advance_once(
         self,
         duration: timedelta,
     ) -> SimulationResult:
-        """执行一个子步（时长不超过 MAX_TICK_STEP）。"""
+        """Simulator 一次模拟 + 引擎子步积分。"""
 
         next_time = self.current_time + duration
 
@@ -321,11 +313,31 @@ class LifeLoop:
             next_time,
         )
 
-        # ---------------------------------------------------------
-        # 3.0 生命核心更新（时间绑定 EMA 指数衰减）
-        # ---------------------------------------------------------
+        cursor = self.current_time
 
-        hours = duration.total_seconds() / 3600.0
+        for step in self._split_steps(duration):
+            cursor += step
+            self._integrate_engine(
+                step,
+                at_time=cursor,
+                result=result,
+            )
+
+        self.current_time = next_time
+
+        self._store_events(result)
+
+        return result
+
+    def _integrate_engine(
+        self,
+        step: timedelta,
+        at_time: datetime,
+        result: SimulationResult,
+    ) -> None:
+        """推进一个引擎积分子步（神经化学 / 情绪 / 关系 / 日记 / 主动）。"""
+
+        hours = step.total_seconds() / 3600.0
 
         self.neurochemical.tick(hours)
 
@@ -334,8 +346,10 @@ class LifeLoop:
             elapsed_hours=hours,
         )
 
+        self.relationship_engine.tick(at_time)
+
         self.diary.advance(
-            next_time,
+            at_time,
             emotion_state=self.emotion.state(),
             life_state=self.life_state,
             events=[
@@ -349,15 +363,11 @@ class LifeLoop:
         # ---------------------------------------------------------
 
         ctx = ProactiveContext(
-            now=next_time,
+            now=at_time,
             life_state=self.life_state,
             emotion_state=self.emotion.state(),
             neuro_state=self.neurochemical.state(),
-            relationship_state=getattr(
-                self.simulator,
-                "relationship_state",
-                None,
-            ),
+            relationship_state=self.relationship_engine.state,
             diary=self.diary,
             interests=(
                 self.memory_manager
@@ -387,10 +397,6 @@ class LifeLoop:
                 )
             )
 
-        self._store_events(result)
-
-        self.current_time = next_time
-
         return result
 
     def get_pending_proactive_messages(
@@ -415,6 +421,7 @@ class LifeLoop:
             life_state=self.life_state,
             emotion_state=self.emotion.state(),
             neuro_state=self.neurochemical.state(),
+            relationship_state=self.relationship_engine.state,
             diary=self.diary,
             interests=(
                 self.memory_manager

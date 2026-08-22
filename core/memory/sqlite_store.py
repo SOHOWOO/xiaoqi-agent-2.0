@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from datetime import datetime, time
@@ -58,6 +59,15 @@ class SQLiteMemoryStore:
                 energy REAL NOT NULL,
                 fatigue REAL NOT NULL,
                 last_user_interaction_at TEXT
+            )
+            """
+        )
+
+        self._connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS relationship_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                data TEXT NOT NULL
             )
             """
         )
@@ -416,6 +426,47 @@ class SQLiteMemoryStore:
 
     def close(self) -> None:
         self._connection.close()
+
+    # ---------------------------------------------------------
+    # Relationship state
+    # ---------------------------------------------------------
+
+    def save_relationship_state(
+        self,
+        data: dict,
+    ) -> None:
+        """持久化多维关系状态。"""
+
+        self._connection.execute(
+            """
+            INSERT INTO relationship_state (id, data)
+            VALUES (1, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                data = excluded.data
+            """,
+            (json.dumps(data, ensure_ascii=False),),
+        )
+
+        self._connection.commit()
+
+    def load_relationship_state(self) -> dict | None:
+        """读取持久化的关系状态。"""
+
+        row = self._connection.execute(
+            """
+            SELECT data
+            FROM relationship_state
+            WHERE id = 1
+            """
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        try:
+            return json.loads(row["data"])
+        except json.JSONDecodeError:
+            return None
 
     def __len__(self) -> int:
         row = self._connection.execute(

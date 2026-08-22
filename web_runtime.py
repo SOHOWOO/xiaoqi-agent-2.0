@@ -90,6 +90,8 @@ class WebRuntime:
             diary_engine=diary,
         )
 
+        self._restore_relationship()
+
         if load_canonical:
             self._load_canonical_memories()
 
@@ -153,7 +155,7 @@ class WebRuntime:
         self._persist_engines()
 
     def _persist_engines(self) -> None:
-        """持久化神经化学 / 情绪引擎状态。"""
+        """持久化神经化学 / 情绪 / 关系引擎状态。"""
 
         current = self.life_loop.current_time
 
@@ -166,6 +168,24 @@ class WebRuntime:
             self.life_loop.emotion.state(),
             updated_at=current,
         )
+
+        relationship = (
+            self.life_loop.relationship_engine.state
+        )
+
+        self.memory_store.save_relationship_state(
+            relationship.as_dict()
+        )
+
+    def _restore_relationship(self) -> None:
+        """启动时恢复关系状态。"""
+
+        data = self.memory_store.load_relationship_state()
+
+        if data is None:
+            return
+
+        self.life_loop.relationship_engine.restore(data)
 
     def advance(self) -> None:
         """根据现实时间推进小七的生活。
