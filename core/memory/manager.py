@@ -8,6 +8,12 @@ from .policy import can_modify, is_long_term_candidate
 from .store import MemoryStore
 from .memory_router import MemoryRouter
 from .layers import MemoryLayers
+from .memory_stores import (
+    DiaryMemoryStore,
+    EpisodicMemoryStore,
+    RelationshipMemoryStore,
+    SemanticMemoryStore,
+)
 
 
 class MemoryAction:
@@ -33,8 +39,23 @@ class MemoryManager:
         self.router = MemoryRouter()
         self.layers = MemoryLayers()
 
+        self.episodic_store = EpisodicMemoryStore()
+        self.relationship_store = RelationshipMemoryStore()
+        self.semantic_store = SemanticMemoryStore()
+        self.diary_store = DiaryMemoryStore()
+
         from .proactive import ProactiveInterestManager
         self.proactive_manager = ProactiveInterestManager()
+
+    def _write_layer_store(self, route: str, content: str):
+        if route == "episodic":
+            self.episodic_store.add(content)
+        elif route == "relationship":
+            self.relationship_store.add(content)
+        elif route == "semantic":
+            self.semantic_store.add(content)
+        else:
+            self.diary_store.add(content)
 
     def decide(self, memory: MemoryRecord, target_memory: Optional[MemoryRecord] = None) -> MemoryDecision:
         route = self.router.route(
@@ -64,7 +85,9 @@ class MemoryManager:
         decision = self.decide(memory)
         if decision.action == MemoryAction.ADD:
             self.store.add(memory)
-            self.layers.add(decision.route or "diary", str(getattr(memory, "content", "")))
+            route = decision.route or "diary"
+            self.layers.add(route, str(getattr(memory, "content", "")))
+            self._write_layer_store(route, str(getattr(memory, "content", "")))
             self.proactive_manager.register(memory)
         return decision
 
