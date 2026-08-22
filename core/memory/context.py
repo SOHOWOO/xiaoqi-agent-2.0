@@ -14,6 +14,32 @@ class MemoryContext:
     query: str
     memories: List[MemoryRecord]
 
+
+    def filter_by_type(
+        self,
+        memory_type: MemoryType,
+    ) -> List[MemoryRecord]:
+        return [
+            memory
+            for memory in self.memories
+            if memory.memory_type == memory_type
+        ]
+
+    def canonical(self) -> List[MemoryRecord]:
+        return self.filter_by_type(
+            MemoryType.CANONICAL
+        )
+
+    def interaction(self) -> List[MemoryRecord]:
+        return self.filter_by_type(
+            MemoryType.INTERACTION
+        )
+
+    def virtual_life(self) -> List[MemoryRecord]:
+        return self.filter_by_type(
+            MemoryType.VIRTUAL_LIFE
+        )
+
     def as_text(self) -> str:
         """将记忆转换成可提供给 LLM 的纯文本。"""
 
