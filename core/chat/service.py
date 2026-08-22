@@ -157,6 +157,15 @@ class ChatService:
             now=self.runtime.current_time,
         )
 
+        gate = getattr(
+            self.life_loop,
+            "unified_proactive",
+            None,
+        )
+
+        if gate is not None:
+            gate.gate.reset_backoff()
+
         event_bus = getattr(
             self.life_loop,
             "event_bus",

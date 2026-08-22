@@ -14,7 +14,11 @@ from .memory import (
     MemoryStore,
     MemoryType,
 )
-from .neurochemical import NeurochemicalEngine
+from .neurochemical import (
+    NeurochemicalEngine,
+    NeurochemicalStimulus,
+    StimulusType,
+)
 from .proactive import (
     ProactiveContext,
     ProactiveMessage,
@@ -43,6 +47,10 @@ class LifeLoop:
     # 用于精确触发作息状态机切换、能量 / 疲劳 / 神经化学
     # 按序演化与跨天边界事件（日记、主动行为）。
     MAX_TICK_STEP = timedelta(minutes=15)
+
+    # 失联（PROLONGED_ABSENCE）检测阈值与触发间隔（小时）。
+    ABSENCE_THRESHOLD_HOURS = 24.0
+    ABSENCE_INTERVAL_HOURS = 6.0
 
     def __init__(
         self,
@@ -83,6 +91,9 @@ class LifeLoop:
             start_time,
             tz,
         )
+
+        # 启动时刻（失联起算基准：从未互动时从此处开始计算失联时长）。
+        self._born_at = self.current_time
 
         self.simulator = LifeSimulator(
             seed=seed,
@@ -139,6 +150,7 @@ class LifeLoop:
         )
 
         self._last_dominant_emotion: str | None = None
+        self._last_absence_trigger: datetime | None = None
 
         # ---------------------------------------------------------
         # 从持久化存储恢复
@@ -381,6 +393,8 @@ class LifeLoop:
 
         self.relationship_engine.tick(at_time)
 
+        self._apply_absence(at_time)
+
         diary_entry = self.diary.advance(
             at_time,
             emotion_state=self.emotion.state(),
@@ -502,6 +516,96 @@ class LifeLoop:
                     ),
                 },
             )
+
+    def _apply_absence(
+        self,
+        now: datetime,
+    ) -> None:
+        """失联检测：长时间无互动时周期性施加 PROLONGED_ABSENCE。
+
+        保持生命链路完整性：
+            失联事件 -> 神经化学 -> 情绪 -> 动机 -> 主动行为
+        而非直接"if lonely: 发消息"。
+        """
+
+        last = (
+            self.simulator
+            .interaction_state
+            .last_user_interaction_at
+        )
+
+        if last is None:
+            last = self._born_at
+
+        hours = max(
+            0.0,
+            (now - last).total_seconds() / 3600.0,
+        )
+
+        if hours < self.ABSENCE_THRESHOLD_HOURS:
+            return
+
+        if self._last_absence_trigger is not None:
+            if (
+                now - self._last_absence_trigger
+            ).total_seconds() < (
+                self.ABSENCE_INTERVAL_HOURS * 3600.0
+            ):
+                return
+
+        self._last_absence_trigger = now
+
+        intensity = min(
+            1.0,
+            hours / 72.0,
+        )
+
+        self.neurochemical.apply_stimulus(
+            NeurochemicalStimulus(
+                StimulusType.PROLONGED_ABSENCE,
+                intensity=intensity,
+            )
+        )
+
+        self.emotion.update_from_neurochemical(
+            self.neurochemical.state()
+        )
+
+    def get_state(self) -> dict:
+        """只读状态快照。
+
+        供 Life Lab、Debug、Avatar / UI / WebSocket 等外部观测使用。
+        返回不可变快照（EmotionState / NeurochemicalState 为 frozen），
+        不暴露内部可变引用。
+        """
+
+        life_state = self.life_state
+
+        return {
+            "time": self.current_time,
+            "life": {
+                "current_activity": (
+                    life_state.current_activity
+                ),
+                "energy": life_state.energy,
+                "fatigue": life_state.fatigue,
+            },
+            "emotion": self.emotion.state(),
+            "neurochemical": (
+                self.neurochemical.state()
+            ),
+            "relationship": (
+                self.relationship_engine
+                .state
+                .as_dict()
+            ),
+            "memory": {
+                "count": len(self.memory_store),
+                "diary_count": len(
+                    self.diary.entries()
+                ),
+            },
+        }
 
     def get_pending_proactive_messages(
         self,
