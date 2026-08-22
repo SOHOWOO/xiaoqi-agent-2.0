@@ -10,6 +10,11 @@ from ..memory import (
     MemoryType,
 )
 from ..memory.importance import estimate_importance
+from ..neurochemical import (
+    NeurochemicalStimulus,
+    StimulusType,
+)
+from ..proactive import ProactiveMessage
 from .models import ChatResult
 from .request import ChatRequest, ChatMessage
 from ..llm import (
@@ -21,9 +26,7 @@ from .prompt import ChatPromptBuilder
 from .provider import ResponseProvider
 from .state_analyzer import ConversationStateAnalyzer
 from ..relationship import RelationshipEngine
-from .proactive_trigger import ProactiveTrigger
 from .proactive_bridge import ProactiveBridge
-from ..life.proactive_scheduler import ProactiveScheduler
 
 
 class ChatService:
@@ -38,6 +41,7 @@ class ChatService:
         response_provider: ResponseProvider | None = None,
         llm_provider: LLMProvider | None = None,
         runtime: AgentRuntime | None = None,
+        relationship_engine: RelationshipEngine | None = None,
     ) -> None:
         self.life_loop = life_loop
 
@@ -53,14 +57,13 @@ class ChatService:
         self.conversation_state = ConversationState()
         self.state_analyzer = ConversationStateAnalyzer()
 
-        self.relationship_engine = RelationshipEngine()
-
-        self.proactive_trigger = ProactiveTrigger(
-            relationship_engine=self.relationship_engine
+        self.relationship_engine = (
+            relationship_engine
+            if relationship_engine is not None
+            else self.runtime.relationship_engine
         )
 
         self.proactive_bridge = ProactiveBridge()
-        self.proactive_scheduler = ProactiveScheduler()
 
         self.memory_manager = (
             memory_manager
@@ -77,6 +80,7 @@ class ChatService:
             self.prompt_builder = ChatPromptBuilder(
                 conversation_state=self.conversation_state,
                 relationship_engine=self.relationship_engine,
+                life_loop=self.life_loop,
             )
         else:
             self.prompt_builder = prompt_builder
@@ -93,6 +97,8 @@ class ChatService:
 
         if not text.strip():
             raise ValueError("message cannot be empty")
+
+        self._on_user_interaction()
 
         self.conversation_state.update_user_message(
             text,
@@ -118,10 +124,15 @@ class ChatService:
 
         proactive_messages = []
 
-        for event in self.runtime.get_proactive_events():
-            message = self.proactive_trigger.handle(event)
-
-            proactive_messages.append(message)
+        for action in self.runtime.get_proactive_events():
+            proactive_messages.append(
+                ProactiveMessage(
+                    content=action.content,
+                    source_interest_id=(
+                        action.source_interest_id
+                    ),
+                )
+            )
 
         return ChatResult(
             user_message=text,
@@ -136,6 +147,33 @@ class ChatService:
             ),
             proactive_messages=proactive_messages,
         )
+
+    def _on_user_interaction(self) -> None:
+        """用户互动时更新神经化学 / 情绪 / 关系 / 互动时间。"""
+
+        self.relationship_engine.interact()
+
+        interaction = self.runtime.interaction_state
+
+        if interaction is not None:
+            interaction.last_user_interaction_at = (
+                self.runtime.current_time
+            )
+
+        if hasattr(
+            self.life_loop,
+            "neurochemical",
+        ):
+            self.life_loop.neurochemical.apply_stimulus(
+                NeurochemicalStimulus(
+                    StimulusType.USER_INTERACTION,
+                    intensity=0.5,
+                )
+            )
+
+            self.life_loop.emotion.update_from_neurochemical(
+                self.life_loop.neurochemical.state()
+            )
 
     def respond(
         self,

@@ -17,6 +17,7 @@ class ChatPromptBuilder:
         personality_engine: PersonalityEngine | None = None,
         relationship_engine: RelationshipEngine | None = None,
         conversation_state: ConversationState | None = None,
+        life_loop=None,
     ):
         self.personality_engine = (
             personality_engine
@@ -38,6 +39,88 @@ class ChatPromptBuilder:
             else ConversationState()
         )
 
+        self.life_loop = life_loop
+
+    def _emotion_section(self) -> str | None:
+        """注入小七当前情绪与神经化学状态。"""
+
+        life_loop = self.life_loop
+
+        if life_loop is None:
+            return None
+
+        emotion = getattr(
+            life_loop,
+            "emotion",
+            None,
+        )
+
+        if emotion is None:
+            return None
+
+        state = emotion.state()
+
+        emotion_desc = (
+            "、".join(
+                [
+                    f"{name}: {value:.2f}"
+                    for name, value in sorted(
+                        state.as_dict().items(),
+                        key=lambda kv: -kv[1],
+                    )
+                    if value >= 0.3
+                ]
+            )
+            or state.dominant().value
+        )
+
+        lines = [
+            "【小七当前状态】",
+            f"- 主导情绪：{state.dominant().value}",
+            f"- 情绪明细：{emotion_desc}",
+        ]
+
+        neuro = getattr(
+            life_loop,
+            "neurochemical",
+            None,
+        )
+
+        if neuro is not None:
+            neuro_state = neuro.state()
+
+            lines.append(
+                "- 神经化学："
+                + "、".join(
+                    [
+                        f"{name}: {value:.2f}"
+                        for name, value in sorted(
+                            neuro_state.as_dict().items(),
+                            key=lambda kv: -kv[1],
+                        )
+                    ]
+                )
+            )
+
+        diary = getattr(
+            life_loop,
+            "diary",
+            None,
+        )
+
+        if diary is not None:
+            recent = diary.recent(limit=1)
+
+            if recent:
+                latest = recent[-1]
+
+                lines.append(
+                    f"- 最近日记（{latest.date.isoformat()}）："
+                    f"{latest.content.splitlines()[0]}"
+                )
+
+        return "\n".join(lines)
+
     def build(
         self,
         result: ChatResult,
@@ -53,6 +136,11 @@ class ChatPromptBuilder:
         sections.append(
             self.relationship_engine.build_context()
         )
+
+        emotion_section = self._emotion_section()
+
+        if emotion_section is not None:
+            sections.append(emotion_section)
 
         sections.append(
             "【对话状态】\n"

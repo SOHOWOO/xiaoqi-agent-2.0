@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from .diary import DiaryEngine
+from .diary.persistence import SQLiteDiaryStore
+from .emotion import EmotionEngine
 from .memory import (
     MemoryManager,
     MemoryRecord,
@@ -9,12 +12,16 @@ from .memory import (
     MemoryStore,
     MemoryType,
 )
+from .neurochemical import NeurochemicalEngine
+from .proactive import (
+    ProactiveContext,
+    ProactiveMessage,
+    UnifiedProactiveEngine,
+)
+from .relationship import RelationshipEngine
 from .simulator import LifeSimulator
 from .state import SimulationResult
 from .time_engine import DEFAULT_TZ, ensure_aware
-from .life.proactive_scheduler import ProactiveScheduler
-from .life.proactive_engine import ProactiveEngine
-from .chat.proactive_trigger import ProactiveTrigger, ProactiveMessage
 
 
 class LifeLoop:
@@ -38,6 +45,11 @@ class LifeLoop:
         tz=DEFAULT_TZ,
         memory_store: MemoryStore | None = None,
         memory_manager: MemoryManager | None = None,
+        neurochemical_engine: NeurochemicalEngine | None = None,
+        emotion_engine: EmotionEngine | None = None,
+        diary_engine: DiaryEngine | None = None,
+        proactive_engine: UnifiedProactiveEngine | None = None,
+        relationship_engine: RelationshipEngine | None = None,
     ):
         self.tz = tz
 
@@ -71,14 +83,41 @@ class LifeLoop:
 
         self._memorized_event_ids: set[str] = set()
 
-        self.proactive_scheduler = ProactiveScheduler()
-        self.proactive_engine = ProactiveEngine()
-
-        self.proactive_trigger = ProactiveTrigger()
-
         self._pending_proactive_messages: list[
             ProactiveMessage
         ] = []
+
+        self.neurochemical = (
+            neurochemical_engine
+            if neurochemical_engine is not None
+            else NeurochemicalEngine()
+        )
+
+        self.emotion = (
+            emotion_engine
+            if emotion_engine is not None
+            else EmotionEngine()
+        )
+
+        self.diary = (
+            diary_engine
+            if diary_engine is not None
+            else DiaryEngine(
+                diary_store=SQLiteDiaryStore(":memory:"),
+            )
+        )
+
+        self.unified_proactive = (
+            proactive_engine
+            if proactive_engine is not None
+            else UnifiedProactiveEngine()
+        )
+
+        self.relationship_engine = (
+            relationship_engine
+            if relationship_engine is not None
+            else RelationshipEngine()
+        )
 
         # ---------------------------------------------------------
         # 从持久化存储恢复
@@ -235,25 +274,70 @@ class LifeLoop:
             next_time,
         )
 
-        proactive_events = self.proactive_engine.evaluate(
-            self.memory_manager.get_proactive_interests(),
+        # ---------------------------------------------------------
+        # 3.0 生命核心更新
+        # ---------------------------------------------------------
+
+        hours = duration.total_seconds() / 3600.0
+
+        self.neurochemical.tick(hours)
+
+        self.emotion.update_from_neurochemical(
+            self.neurochemical.state()
+        )
+
+        diary_entry = self.diary.advance(
             next_time,
+            emotion_state=self.emotion.state(),
             life_state=self.life_state,
+            events=[
+                event.event_type
+                for event in result.events
+            ],
         )
 
-        result.events.extend(
-            proactive_events
+        # ---------------------------------------------------------
+        # 主动行为（Proactive Engine 2.0）
+        # ---------------------------------------------------------
+
+        ctx = ProactiveContext(
+            now=next_time,
+            life_state=self.life_state,
+            emotion_state=self.emotion.state(),
+            neuro_state=self.neurochemical.state(),
+            relationship_state=getattr(
+                self.simulator,
+                "relationship_state",
+                None,
+            ),
+            diary=self.diary,
+            interests=(
+                self.memory_manager
+                .get_proactive_interests()
+            ),
+            last_user_interaction_at=(
+                self.simulator
+                .interaction_state
+                .last_user_interaction_at
+            ),
+            current_slot_id=(
+                self.life_state.current_slot_id
+            ),
         )
 
-        for event in proactive_events:
-            message = self.proactive_trigger.handle(
-                event
-            )
+        proactive_actions = (
+            self.unified_proactive.evaluate(ctx)
+        )
 
-            if message is not None:
-                self._pending_proactive_messages.append(
-                    message
+        for action in proactive_actions:
+            self._pending_proactive_messages.append(
+                ProactiveMessage(
+                    content=action.content,
+                    source_interest_id=(
+                        action.source_interest_id
+                    ),
                 )
+            )
 
         self._store_events(result)
 
@@ -278,19 +362,30 @@ class LifeLoop:
 
 
     def get_proactive_events(self):
-        """获取当前待触发的主动关注事件。"""
+        """获取当前待触发的主动行为。"""
 
-        interests = (
-            self.memory_manager
-            .proactive_manager
-            .all()
-        )
-
-        return self.proactive_engine.evaluate(
-            interests,
-            self.current_time,
+        ctx = ProactiveContext(
+            now=self.current_time,
             life_state=self.life_state,
+            emotion_state=self.emotion.state(),
+            neuro_state=self.neurochemical.state(),
+            diary=self.diary,
+            interests=(
+                self.memory_manager
+                .proactive_manager
+                .all()
+            ),
+            last_user_interaction_at=(
+                self.simulator
+                .interaction_state
+                .last_user_interaction_at
+            ),
+            current_slot_id=(
+                self.life_state.current_slot_id
+            ),
         )
+
+        return self.unified_proactive.evaluate(ctx)
 
 
     # -------------------------------------------------------------

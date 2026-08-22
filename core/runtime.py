@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from .life_loop import LifeLoop
 from .memory import MemoryManager
-from .relationship import RelationshipEngine
 
 
 class AgentRuntime:
@@ -30,7 +29,7 @@ class AgentRuntime:
         )
 
         self.relationship_engine = (
-            RelationshipEngine()
+            life_loop.relationship_engine
         )
 
     @property

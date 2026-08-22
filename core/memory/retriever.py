@@ -13,9 +13,13 @@ class MemoryRetriever:
     """小七增强记忆检索器。"""
 
     _TYPE_PRIORITY = {
+        MemoryType.RELATIONSHIP: 4.0,
         MemoryType.CANONICAL: 3.0,
+        MemoryType.SEMANTIC: 3.5,
         MemoryType.INTERACTION: 2.0,
+        MemoryType.EPISODIC: 2.0,
         MemoryType.VIRTUAL_LIFE: 1.0,
+        MemoryType.DIARY: 1.5,
     }
 
     _STOP_WORDS = {
@@ -141,9 +145,10 @@ class MemoryRetriever:
 
         return (
             keyword_score * 5
-            + self._TYPE_PRIORITY[
-                memory.memory_type
-            ]
+            + self._TYPE_PRIORITY.get(
+                memory.memory_type,
+                1.0,
+            )
             + memory.importance * 2
             + self._recency_score(memory)
         )

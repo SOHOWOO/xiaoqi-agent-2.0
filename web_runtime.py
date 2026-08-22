@@ -4,6 +4,8 @@ import threading
 from datetime import datetime
 
 from core.chat import ChatService, OpenAICompatibleProvider
+from core.diary import DiaryEngine, SQLiteDiaryStore
+from core.emotion import EmotionEngine, SQLiteEmotionStore
 from core.life_loop import LifeLoop
 from core.memory import (
     MemoryContextBuilder,
@@ -11,6 +13,10 @@ from core.memory import (
     SQLiteMemoryStore,
 )
 from core.memory.importer import CanonicalMemoryImporter
+from core.neurochemical import (
+    NeurochemicalEngine,
+    SQLiteNeurochemicalStore,
+)
 from core.time_engine import DEFAULT_TZ
 
 
@@ -46,12 +52,42 @@ class WebRuntime:
             "memories/xiaoqi_memory.db"
         )
 
+        self.neuro_store = SQLiteNeurochemicalStore(
+            "memories/xiaoqi_memory.db"
+        )
+        self.emotion_store = SQLiteEmotionStore(
+            "memories/xiaoqi_memory.db"
+        )
+        self.diary_store = SQLiteDiaryStore(
+            "memories/xiaoqi_memory.db"
+        )
+
+        neurochemical = NeurochemicalEngine()
+
+        loaded_neuro = self.neuro_store.load()
+        if loaded_neuro is not None:
+            neurochemical.restore(loaded_neuro)
+
+        emotion = EmotionEngine()
+
+        loaded_emotion = self.emotion_store.load()
+        if loaded_emotion is not None:
+            emotion.restore(loaded_emotion)
+
+        diary = DiaryEngine(
+            diary_store=self.diary_store,
+            memory_store=self.memory_store,
+        )
+
         now = datetime.now(DEFAULT_TZ)
 
         self.life_loop = LifeLoop(
             start_time=now,
             seed=42,
             memory_store=self.memory_store,
+            neurochemical_engine=neurochemical,
+            emotion_engine=emotion,
+            diary_engine=diary,
         )
 
         if load_canonical:
@@ -110,6 +146,23 @@ class WebRuntime:
         duration = now - current
 
         self.life_loop.tick(duration)
+
+        self._persist_engines()
+
+    def _persist_engines(self) -> None:
+        """持久化神经化学 / 情绪引擎状态。"""
+
+        current = self.life_loop.current_time
+
+        self.neuro_store.save(
+            self.life_loop.neurochemical.state(),
+            updated_at=current,
+        )
+
+        self.emotion_store.save(
+            self.life_loop.emotion.state(),
+            updated_at=current,
+        )
 
     def advance(self) -> None:
         """根据现实时间推进小七的生活。
@@ -180,11 +233,34 @@ class WebRuntime:
                         MemoryType.VIRTUAL_LIFE
                     )
                 ),
+                "episodic": len(
+                    store.by_type(
+                        MemoryType.EPISODIC
+                    )
+                ),
+                "semantic": len(
+                    store.by_type(
+                        MemoryType.SEMANTIC
+                    )
+                ),
+                "relationship": len(
+                    store.by_type(
+                        MemoryType.RELATIONSHIP
+                    )
+                ),
+                "diary": len(
+                    store.by_type(
+                        MemoryType.DIARY
+                    )
+                ),
             }
 
     def life_state_dict(self) -> dict:
         with self._lock:
             state = self.life_loop.life_state
+
+            emotion = self.life_loop.emotion.state()
+            neuro = self.life_loop.neurochemical.state()
 
             return {
                 "current_time": str(
@@ -193,6 +269,11 @@ class WebRuntime:
                 "current_activity": state.current_activity,
                 "energy": state.energy,
                 "fatigue": state.fatigue,
+                "emotion": emotion.as_dict(),
+                "dominant_emotion": (
+                    emotion.dominant().value
+                ),
+                "neurochemical": neuro.as_dict(),
             }
 
     def close(self) -> None:
@@ -200,3 +281,6 @@ class WebRuntime:
 
         with self._lock:
             self.memory_store.close()
+            self.neuro_store.close()
+            self.emotion_store.close()
+            self.diary_store.close()

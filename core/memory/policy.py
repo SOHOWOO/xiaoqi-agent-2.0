@@ -36,5 +36,14 @@ def is_long_term_candidate(
     if memory_type == MemoryType.CANONICAL:
         return True
 
+    # 认知层记忆（语义 / 关系 / 日记）是归纳后的长期事实，
+    # 默认进入长期记忆。
+    if memory_type in {
+        MemoryType.SEMANTIC,
+        MemoryType.RELATIONSHIP,
+        MemoryType.DIARY,
+    }:
+        return True
+
     # 互动记忆和虚拟生活记忆需要达到重要程度阈值。
     return importance >= 0.7

@@ -6,11 +6,19 @@ from enum import Enum
 
 
 class MemoryType(str, Enum):
-    """小七的三类记忆。"""
+    """小七的记忆类型。
+
+    前三类为 2.0 原有（按来源真实性分类）；
+    后四类为 3.0 新增的认知层记忆（Memory 2.0）。
+    """
 
     CANONICAL = "canonical"
     INTERACTION = "interaction"
     VIRTUAL_LIFE = "virtual_life"
+    EPISODIC = "episodic"
+    SEMANTIC = "semantic"
+    RELATIONSHIP = "relationship"
+    DIARY = "diary"
 
 
 class MemorySource(str, Enum):
@@ -19,6 +27,9 @@ class MemorySource(str, Enum):
     USER_PROVIDED = "user_provided"
     CONVERSATION = "conversation"
     LIFE_SIMULATION = "life_simulation"
+    MEMORY_CONSOLIDATION = "memory_consolidation"
+    DIARY = "diary"
+    RELATIONSHIP_ANALYSIS = "relationship_analysis"
 
 
 @dataclass(frozen=True)

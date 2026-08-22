@@ -1,11 +1,31 @@
-from .engine import ProactiveEngine
+from .engine import UnifiedProactiveEngine
 from .models import (
-    ProactiveEvent,
-    ProactiveTrigger,
+    ProactiveAction,
+    ProactiveContext,
+    ProactiveMessage,
+    ProactiveSignal,
+    VALID_ACTIONS,
+)
+from .scheduler import ProactiveGate
+from .signals import (
+    DiarySignalGenerator,
+    EmotionSignalGenerator,
+    MemorySignalGenerator,
+    NeurochemicalSignalGenerator,
+    TimeSignalGenerator,
 )
 
 __all__ = [
-    "ProactiveEngine",
-    "ProactiveEvent",
-    "ProactiveTrigger",
+    "VALID_ACTIONS",
+    "ProactiveSignal",
+    "ProactiveAction",
+    "ProactiveMessage",
+    "ProactiveContext",
+    "ProactiveGate",
+    "UnifiedProactiveEngine",
+    "EmotionSignalGenerator",
+    "NeurochemicalSignalGenerator",
+    "TimeSignalGenerator",
+    "DiarySignalGenerator",
+    "MemorySignalGenerator",
 ]
