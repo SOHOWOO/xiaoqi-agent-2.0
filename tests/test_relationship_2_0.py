@@ -68,6 +68,8 @@ def test_conflict_erodes_trust():
 
 def test_tick_decays_over_absence():
     engine = RelationshipEngine()
+
+    engine.tick(_dt(1))
     engine.update("user_interaction", intensity=1.0, now=_dt(1))
 
     peak_attachment = engine.state.attachment
@@ -89,6 +91,39 @@ def test_tick_no_decay_when_recent():
         peak,
         abs=1e-9,
     )
+
+
+def test_continuous_tick_matches_total_decay():
+    """连续 672 次 15min tick 的衰减 == 一次 7 天的衰减。"""
+
+    import math
+
+    engine = RelationshipEngine()
+    start = _dt(1)
+
+    engine.tick(start)
+    engine.update("user_interaction", intensity=1.0, now=start)
+
+    peak = engine.state.attachment
+
+    for i in range(1, 672 + 1):
+        engine.tick(start + timedelta(minutes=15 * i))
+
+    expected = peak * math.exp(-0.008 * 7)
+
+    assert engine.state.attachment == pytest.approx(
+        expected,
+        abs=1e-6,
+    )
+
+
+def test_first_tick_does_not_set_last_interaction():
+    """引擎 tick 不应把"从未互动"误标为已互动。"""
+
+    engine = RelationshipEngine()
+    engine.tick(_dt(1))
+
+    assert engine.state.last_interaction_at is None
 
 
 def test_intimacy_and_stage_derived():

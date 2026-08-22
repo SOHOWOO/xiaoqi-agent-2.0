@@ -71,6 +71,11 @@ class RelationshipEngine:
             else RelationshipState()
         )
 
+        # 引擎上次 tick 时刻，用于增量时间衰减。
+        # 修复：此前用 (now - last_interaction) 累计时长做指数衰减，
+        # 会被每次 tick 复合放大（7 天 672 tick 后关系几乎归零）。
+        self._last_tick_at: datetime | None = None
+
     # ---------------------------------------------------------
     # 事件驱动
     # ---------------------------------------------------------
@@ -128,26 +133,32 @@ class RelationshipEngine:
         self,
         now: datetime,
     ) -> RelationshipState:
-        """按时间距离衰减关系强度。"""
+        """按本次 tick 的时间增量衰减关系强度。
 
-        last = self.state.last_interaction_at
+        首次调用仅记录基线时刻；之后每次只衰减
+        自上次 tick 以来的时间差（delta_days），
+        确保连续 N 次小步长 == 一次大步长。
+        """
 
-        if last is None:
-            self.state.last_interaction_at = now
+        if self._last_tick_at is None:
+            self._last_tick_at = now
             return self.state
 
-        days = max(
+        delta_days = max(
             0.0,
-            (now - last).total_seconds() / 86400.0,
+            (now - self._last_tick_at).total_seconds()
+            / 86400.0,
         )
 
-        if days <= 0:
+        self._last_tick_at = now
+
+        if delta_days <= 0:
             return self.state
 
         for name, rate in _DECAY_RATES.items():
             current = getattr(self.state, name)
 
-            decayed = current * math.exp(-rate * days)
+            decayed = current * math.exp(-rate * delta_days)
 
             setattr(
                 self.state,
