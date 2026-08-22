@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import math
 from datetime import datetime, timezone
-from typing import List
+from typing import Callable, List
 
 from .models import MemoryRecord, MemoryType
 from .store import MemoryStore
@@ -47,8 +47,14 @@ class MemoryRetriever:
     def __init__(
         self,
         store: MemoryStore,
+        now_provider: Callable[[], datetime] | None = None,
     ):
         self.store = store
+        self._now_provider = (
+            now_provider
+            if now_provider is not None
+            else lambda: datetime.now(timezone.utc)
+        )
 
     def _extract_keywords(
         self,
@@ -101,9 +107,12 @@ class MemoryRetriever:
     ) -> float:
         """越新的记忆越重要。"""
 
-        now = datetime.now(
-            timezone.utc
-        )
+        now = self._now_provider()
+
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        else:
+            now = now.astimezone(timezone.utc)
 
         created = memory.created_at
 

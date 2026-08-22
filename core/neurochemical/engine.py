@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Mapping
 
 from .models import (
@@ -116,9 +117,11 @@ class NeurochemicalEngine:
     ) -> NeurochemicalState:
         """让所有神经化学物质向基线回归。
 
-        线性回归且不会越过基线：
-            new = old + (baseline - old) * regression
-        其中 regression = clamp(decay_per_hour * hours, 0, 1)。
+        采用与时间步长绑定的指数衰减（EMA）：
+            new = baseline + (old - baseline) * exp(-decay_per_hour * hours)
+
+        该形式在任意步长下演化一致（大步长 = 小步长的复合），
+        是 LifeLoop 大步长分解积分的数学基础。
         """
 
         if hours < 0:
@@ -137,14 +140,14 @@ class NeurochemicalEngine:
         ) in self._profiles.items():
             old = self._state.level(nt)
 
-            regression = min(
-                1.0,
-                profile.decay_per_hour * hours,
+            decay = math.exp(
+                -profile.decay_per_hour * hours
             )
 
-            new = old + (
-                profile.baseline - old
-            ) * regression
+            new = (
+                profile.baseline
+                + (old - profile.baseline) * decay
+            )
 
             new_values[nt.value] = _clamp(new)
 

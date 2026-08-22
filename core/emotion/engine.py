@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Mapping
 
 from ..neurochemical.models import NeurochemicalState
@@ -23,6 +24,10 @@ EMOTION_BASELINE: dict[EmotionType, float] = {
 DEFAULT_DECAY_PER_HOUR = 0.15
 
 NEUROCHEMICAL_BLEND_RATE = 0.5
+
+# 神经化学→情绪 平滑的时间常数（小时）：
+# 约 4 小时后情绪向神经化学目标趋近 ~63%。
+NEUROCHEMICAL_BLEND_TAU_HOURS = 4.0
 
 INVERSE_EMOTION: dict[EmotionType, EmotionType | None] = {
     EmotionType.HAPPY: EmotionType.LONELY,
@@ -92,7 +97,11 @@ class EmotionEngine:
         self,
         hours: float,
     ) -> EmotionState:
-        """所有情绪向平静基线回归。"""
+        """所有情绪向平静基线回归。
+
+        采用与时间步长绑定的指数衰减（EMA），保证大步长
+        与小步长复合的演化结果一致。
+        """
 
         if hours < 0:
             raise ValueError(
@@ -102,19 +111,19 @@ class EmotionEngine:
         if hours == 0:
             return self._state
 
-        regression = min(
-            1.0,
-            self._decay_per_hour * hours,
-        )
-
         new_values: dict[str, float] = {}
 
         for e in EmotionType:
             old = self._state.level(e)
+            baseline = self._baseline[e]
 
-            new = old + (
-                self._baseline[e] - old
-            ) * regression
+            decay = math.exp(
+                -self._decay_per_hour * hours
+            )
+
+            new = baseline + (
+                old - baseline
+            ) * decay
 
             new_values[e.value] = _clamp(new)
 
@@ -127,14 +136,32 @@ class EmotionEngine:
         neuro_state: NeurochemicalState,
         attachment_drive: float | None = None,
         novelty: float = 0.0,
+        elapsed_hours: float | None = None,
     ) -> EmotionState:
-        """按神经化学映射情绪，并以混合率平滑过渡。"""
+        """按神经化学映射情绪，并以平滑率过渡。
+
+        传入 elapsed_hours 时使用时间绑定 EMA（α = 1-e^(-Δt/τ)），
+        保证不同推进步长下演化一致；未传入时退回固定混合率。
+        """
 
         target = map_neurochemical_to_emotions(
             neuro_state,
             attachment_drive=attachment_drive,
             novelty=novelty,
         )
+
+        if elapsed_hours is not None:
+            if elapsed_hours < 0:
+                raise ValueError(
+                    "elapsed_hours must be non-negative"
+                )
+
+            alpha = 1.0 - math.exp(
+                -elapsed_hours
+                / NEUROCHEMICAL_BLEND_TAU_HOURS
+            )
+        else:
+            alpha = NEUROCHEMICAL_BLEND_RATE
 
         new_values: dict[str, float] = {}
 
@@ -144,7 +171,7 @@ class EmotionEngine:
 
             new = old + (
                 goal - old
-            ) * NEUROCHEMICAL_BLEND_RATE
+            ) * alpha
 
             new_values[e.value] = _clamp(new)
 

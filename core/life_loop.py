@@ -29,13 +29,18 @@ class LifeLoop:
 
     LifeSimulator 负责生活模拟。
 
-    LifeLoop 负责：
+     LifeLoop 负责：
     - 推进时间
     - 接收生活事件
     - 将生活事件转换为 MemoryRecord
     - 通过 MemoryManager / Policy 决定是否进入长期记忆
     - 持久化 / 恢复运行时状态
     """
+
+    # 大步长积分时内部拆分的最大子步时长。
+    # 用于精确触发作息状态机切换、能量 / 疲劳 / 神经化学
+    # 按序演化与跨天边界事件（日记、主动行为）。
+    MAX_TICK_STEP = timedelta(minutes=15)
 
     def __init__(
         self,
@@ -134,8 +139,6 @@ class LifeLoop:
         self.simulator._emitted_event_keys.update(
             self._memorized_event_ids
         )
-
-        self._persist_runtime_state()
 
     # -------------------------------------------------------------
     # Persistence
@@ -260,12 +263,56 @@ class LifeLoop:
         self,
         duration: timedelta,
     ) -> SimulationResult:
-        """让小七向前生活一段时间。"""
+        """让小七向前生活一段时间。
+
+        大步长（如离线多日）会被内部拆分为 MAX_TICK_STEP 的子步，
+        确保作息状态机、能量 / 疲劳 / 神经化学衰减与跨天边界事件
+        （日记、主动行为）按序正确触发；Simulator 自身的
+        步长不变性保证生活事件不因分段而重复或丢失。
+        """
 
         if duration.total_seconds() <= 0:
             raise ValueError(
                 "tick duration must be positive"
             )
+
+        steps = self._split_steps(duration)
+
+        merged = SimulationResult()
+
+        for step in steps:
+            sub = self._tick_step(step)
+            merged.events.extend(sub.events)
+            merged.slots_seen.extend(sub.slots_seen)
+            merged.life_state = sub.life_state
+            merged.interaction_state = sub.interaction_state
+
+        self._persist_runtime_state()
+
+        return merged
+
+    def _split_steps(
+        self,
+        duration: timedelta,
+    ) -> list[timedelta]:
+        """把大步长拆分为不超过 MAX_TICK_STEP 的子步。"""
+
+        steps: list[timedelta] = []
+
+        remaining = duration
+
+        while remaining > timedelta(0):
+            step = min(remaining, self.MAX_TICK_STEP)
+            steps.append(step)
+            remaining -= step
+
+        return steps
+
+    def _tick_step(
+        self,
+        duration: timedelta,
+    ) -> SimulationResult:
+        """执行一个子步（时长不超过 MAX_TICK_STEP）。"""
 
         next_time = self.current_time + duration
 
@@ -275,7 +322,7 @@ class LifeLoop:
         )
 
         # ---------------------------------------------------------
-        # 3.0 生命核心更新
+        # 3.0 生命核心更新（时间绑定 EMA 指数衰减）
         # ---------------------------------------------------------
 
         hours = duration.total_seconds() / 3600.0
@@ -283,10 +330,11 @@ class LifeLoop:
         self.neurochemical.tick(hours)
 
         self.emotion.update_from_neurochemical(
-            self.neurochemical.state()
+            self.neurochemical.state(),
+            elapsed_hours=hours,
         )
 
-        diary_entry = self.diary.advance(
+        self.diary.advance(
             next_time,
             emotion_state=self.emotion.state(),
             life_state=self.life_state,
@@ -342,8 +390,6 @@ class LifeLoop:
         self._store_events(result)
 
         self.current_time = next_time
-
-        self._persist_runtime_state()
 
         return result
 

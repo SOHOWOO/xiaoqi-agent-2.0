@@ -45,7 +45,7 @@ def test_tick_decays_toward_baseline():
     for nt in Neurotransmitter:
         assert settled.level(nt) == pytest.approx(
             DEFAULT_PROFILES[nt].baseline,
-            abs=1e-6,
+            abs=1e-3,
         )
 
 

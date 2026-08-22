@@ -83,6 +83,7 @@ class DiaryEngine:
         ):
             entry = self._build_entry(
                 self._last_date,
+                now=now,
                 emotion_state=emotion_state,
                 life_state=life_state,
                 events=events,
@@ -102,14 +103,23 @@ class DiaryEngine:
         self,
         day: date,
         *,
+        now: datetime | None = None,
         emotion_state: EmotionState | None = None,
         life_state=None,
         events: Iterable[str] = (),
     ) -> DiaryEntry:
         """手动为某天生成并保存日记。"""
 
+        if now is None:
+            now = datetime.combine(
+                day,
+                datetime.min.time(),
+                tzinfo=DEFAULT_TZ,
+            )
+
         entry = self._build_entry(
             day,
+            now=now,
             emotion_state=emotion_state,
             life_state=life_state,
             events=events,
@@ -171,6 +181,7 @@ class DiaryEngine:
         self,
         day: date,
         *,
+        now: datetime,
         emotion_state: EmotionState | None,
         life_state,
         events: Iterable[str],
@@ -207,7 +218,7 @@ class DiaryEngine:
             content=content,
             mood_tags=tags,
             event_refs=tuple(event_list),
-            created_at=datetime.now(DEFAULT_TZ),
+            created_at=now,
         )
 
     def _persist(

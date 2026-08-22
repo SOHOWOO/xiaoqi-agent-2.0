@@ -107,7 +107,10 @@ class WebRuntime:
         self._sync_to_real_time()
 
         retriever = MemoryRetriever(
-            self.life_loop.memory_store
+            self.life_loop.memory_store,
+            now_provider=(
+                lambda: self.life_loop.current_time
+            ),
         )
 
         context_builder = MemoryContextBuilder(
