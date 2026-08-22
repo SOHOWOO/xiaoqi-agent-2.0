@@ -1,14 +1,27 @@
 from .models import (
-    AvatarCommand,
-    AvatarEmotion,
+    AvatarExpression,
+    AvatarMotion,
+    LipSyncData,
 )
 
-from .bridge import (
-    AvatarBridge,
-)
+from .provider import AvatarProvider
+
+from .engine import AvatarEngine
+
+from .vrm import VRMController
+
+from .live2d import Live2DController
+
+from .unity import UnityWebSocketBridge
+
 
 __all__ = [
-    "AvatarCommand",
-    "AvatarEmotion",
-    "AvatarBridge",
+    "AvatarExpression",
+    "AvatarMotion",
+    "LipSyncData",
+    "AvatarProvider",
+    "AvatarEngine",
+    "VRMController",
+    "Live2DController",
+    "UnityWebSocketBridge",
 ]
