@@ -57,13 +57,6 @@ class ChatPromptBuilder:
         sections.append(
             "【对话状态】\n"
             f"- 对话轮数：{self.conversation_state.turn_count}\n"
-            f"- 当前情绪环境：{self.conversation_state.emotional_context}\n"
-            f"- 最近主题：{self.conversation_state.topics}"
-        )
-
-        sections.append(
-            "【对话状态】\n"
-            f"- 对话轮数：{self.conversation_state.turn_count}\n"
             f"- 最近话题：{', '.join(self.conversation_state.topics)}\n"
             f"- 用户情绪：{self.conversation_state.emotional_context}"
         )
@@ -74,10 +67,53 @@ class ChatPromptBuilder:
 
         self.relationship_engine.interact()
 
-        memory_text = result.memory_text()
+        memory_context = getattr(
+            result,
+            "memory_context",
+            None,
+        )
 
-        if memory_text:
-            sections.append(memory_text)
+        if memory_context is not None:
+            memory_sections = []
+
+            canonical = memory_context.canonical()
+            if canonical:
+                memory_sections.append(
+                    "【长期记忆】\n"
+                    + "\n".join(
+                        [
+                            f"- {m.content}"
+                            for m in canonical
+                        ]
+                    )
+                )
+
+            interaction = memory_context.interaction()
+            if interaction:
+                memory_sections.append(
+                    "【互动记忆】\n"
+                    + "\n".join(
+                        [
+                            f"- {m.content}"
+                            for m in interaction[-5:]
+                        ]
+                    )
+                )
+
+            virtual = memory_context.virtual_life()
+            if virtual:
+                memory_sections.append(
+                    "【生活经历】\n"
+                    + "\n".join(
+                        [
+                            f"- {m.content}"
+                            for m in virtual[-5:]
+                        ]
+                    )
+                )
+
+            if memory_sections:
+                sections.extend(memory_sections)
 
         proactive_messages = getattr(
             result,
@@ -97,29 +133,22 @@ class ChatPromptBuilder:
                 )
             )
 
-        proactive_manager = getattr(
-            getattr(result, "life_state", None),
-            "proactive_manager",
-            None,
+        interests = getattr(
+            result,
+            "proactive_interests",
+            [],
         )
 
-        if proactive_manager is not None:
-            interests = proactive_manager.all()
-
-            if interests:
-                proactive_text = (
-                    "【主动关注】\\n"
-                    + "\\n".join(
-                        [
-                            f"- {item.content}"
-                            for item in interests[-5:]
-                        ]
-                    )
+        if interests:
+            sections.append(
+                "【主动关注】\n"
+                + "\n".join(
+                    [
+                        f"- {item.content}"
+                        for item in interests[-5:]
+                    ]
                 )
-
-                sections.append(
-                    proactive_text
-                )
+            )
 
         sections.append(
             "【当前生活状态】\n"
