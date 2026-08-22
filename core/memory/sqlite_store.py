@@ -9,6 +9,9 @@ from typing import List
 
 from .models import MemoryRecord, MemorySource, MemoryType
 
+# 运行时状态 schema 版本，用于平滑迁移。
+STATE_VERSION = "3.0"
+
 
 class SQLiteMemoryStore:
     """基于 SQLite 的持久化记忆存储。"""
@@ -35,6 +38,14 @@ class SQLiteMemoryStore:
         self._initialize()
 
     def _initialize(self) -> None:
+        if self.db_path != Path(":memory:"):
+            try:
+                self._connection.execute(
+                    "PRAGMA journal_mode=WAL"
+                )
+            except sqlite3.Error:
+                pass
+
         self._connection.execute(
             """
             CREATE TABLE IF NOT EXISTS memories (
@@ -62,6 +73,20 @@ class SQLiteMemoryStore:
             )
             """
         )
+
+        # 旧库缺少 version 列时，通过迁移补齐。
+        columns = {
+            row["name"]
+            for row in self._connection.execute(
+                "PRAGMA table_info(runtime_state)"
+            ).fetchall()
+        }
+
+        if "version" not in columns:
+            self._connection.execute(
+                "ALTER TABLE runtime_state "
+                "ADD COLUMN version TEXT"
+            )
 
         self._connection.execute(
             """
@@ -323,6 +348,7 @@ class SQLiteMemoryStore:
         energy: float,
         fatigue: float,
         last_user_interaction_at: datetime | None,
+        version: str = STATE_VERSION,
     ) -> None:
         """持久化 LifeLoop 当前运行时状态。"""
 
@@ -357,9 +383,10 @@ class SQLiteMemoryStore:
                 current_activity,
                 energy,
                 fatigue,
-                last_user_interaction_at
+                last_user_interaction_at,
+                version
             )
-            VALUES (1, ?, ?, ?, ?, ?, ?)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 current_time = excluded.current_time,
                 current_slot_id = excluded.current_slot_id,
@@ -367,7 +394,8 @@ class SQLiteMemoryStore:
                 energy = excluded.energy,
                 fatigue = excluded.fatigue,
                 last_user_interaction_at =
-                    excluded.last_user_interaction_at
+                    excluded.last_user_interaction_at,
+                version = excluded.version
             """,
             (
                 (
@@ -384,6 +412,7 @@ class SQLiteMemoryStore:
                     if last_user_interaction_at is not None
                     else None
                 ),
+                version,
             ),
         )
 
@@ -400,7 +429,8 @@ class SQLiteMemoryStore:
                 current_activity,
                 energy,
                 fatigue,
-                last_user_interaction_at
+                last_user_interaction_at,
+                version
             FROM runtime_state
             WHERE id = 1
             """
@@ -422,6 +452,7 @@ class SQLiteMemoryStore:
                     row["last_user_interaction_at"]
                 )
             ),
+            "version": row["version"],
         }
 
     def close(self) -> None:

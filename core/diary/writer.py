@@ -16,6 +16,9 @@ class DiaryWriter:
 
     默认使用确定性模板生成第一人称日记；
     若注入 DiaryLLMProvider，则交由 LLM 生成更自然的文本。
+
+    LLM 调用失败 / 超时 / 异常时自动降级为模板（Graceful Degradation），
+    并标记 last_llm_failed，便于外部安排下次重试。
     """
 
     def __init__(
@@ -23,6 +26,7 @@ class DiaryWriter:
         llm_provider: DiaryLLMProvider | None = None,
     ) -> None:
         self._llm = llm_provider
+        self.last_llm_failed = False
 
     def write(
         self,
@@ -35,20 +39,30 @@ class DiaryWriter:
     ) -> str:
         """生成一篇日记文本。"""
 
+        events = list(events)
+        mood_tags = list(mood_tags)
+
         if self._llm is not None:
-            return self._write_with_llm(
-                date=date,
-                events=list(events),
-                dominant_emotion=dominant_emotion,
-                mood_tags=list(mood_tags),
-                energy=energy,
-            )
+            try:
+                generated = self._write_with_llm(
+                    date=date,
+                    events=events,
+                    dominant_emotion=dominant_emotion,
+                    mood_tags=mood_tags,
+                    energy=energy,
+                )
+
+                if generated and generated.strip():
+                    self.last_llm_failed = False
+                    return generated
+            except Exception:
+                self.last_llm_failed = True
 
         return self._write_template(
             date=date,
-            events=list(events),
+            events=events,
             dominant_emotion=dominant_emotion,
-            mood_tags=list(mood_tags),
+            mood_tags=mood_tags,
             energy=energy,
         )
 

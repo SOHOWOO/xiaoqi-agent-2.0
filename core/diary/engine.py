@@ -289,3 +289,22 @@ class DiaryEngine:
         ]
 
         return matched[-limit:]
+
+    # ---------------------------------------------------------
+    # LLM 降级状态
+    # ---------------------------------------------------------
+
+    @property
+    def llm_failed(self) -> bool:
+        """最近一次日记 LLM 调用是否失败。"""
+
+        return getattr(
+            self._writer,
+            "last_llm_failed",
+            False,
+        )
+
+    def clear_llm_failed(self) -> None:
+        """清除 LLM 失败标记（下次空闲周期重试前调用）。"""
+
+        self._writer.last_llm_failed = False

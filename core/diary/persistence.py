@@ -35,6 +35,14 @@ class SQLiteDiaryStore:
         self._initialize()
 
     def _initialize(self) -> None:
+        if self.db_path != Path(":memory:"):
+            try:
+                self._connection.execute(
+                    "PRAGMA journal_mode=WAL"
+                )
+            except sqlite3.Error:
+                pass
+
         self._connection.execute(
             """
             CREATE TABLE IF NOT EXISTS diaries (
