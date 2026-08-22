@@ -44,3 +44,7 @@ class AgentRuntime:
     @property
     def interaction_state(self):
         return self.life_loop.interaction_state
+
+    def get_proactive_events(self):
+        return self.life_loop.get_proactive_events()
+

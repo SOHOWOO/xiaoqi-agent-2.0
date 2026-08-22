@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..life_loop import LifeLoop
+from ..runtime import AgentRuntime
 from ..memory import (
     MemoryContextBuilder,
     MemoryManager,
@@ -29,8 +30,16 @@ class ChatService:
         memory_manager: MemoryManager | None = None,
         prompt_builder: ChatPromptBuilder | None = None,
         response_provider: ResponseProvider | None = None,
+        runtime: AgentRuntime | None = None,
     ) -> None:
         self.life_loop = life_loop
+
+        self.runtime = (
+            runtime
+            if runtime is not None
+            else AgentRuntime(life_loop)
+        )
+
         self.memory_context_builder = memory_context_builder
 
         from .state import ConversationState
@@ -49,10 +58,10 @@ class ChatService:
         self.memory_manager = (
             memory_manager
             if memory_manager is not None
-            else self.life_loop.memory_manager
+            else self.runtime.memory_manager
         )
 
-        if self.memory_manager.store is not self.life_loop.memory_store:
+        if self.memory_manager.store is not self.runtime.memory_store:
             raise ValueError(
                 "memory_manager must use the same memory_store"
             )
@@ -79,7 +88,7 @@ class ChatService:
 
         self.conversation_state.update_user_message(
             text,
-            self.life_loop.current_time,
+            self.runtime.current_time,
         )
 
         self.state_analyzer.analyze(
@@ -101,7 +110,7 @@ class ChatService:
 
         proactive_messages = []
 
-        for event in self.life_loop.get_proactive_events():
+        for event in self.runtime.get_proactive_events():
             message = self.proactive_trigger.handle(event)
 
             proactive_messages.append(message)
@@ -109,8 +118,8 @@ class ChatService:
         return ChatResult(
             user_message=text,
             memory_context=memory_context,
-            life_state=self.life_loop.life_state,
-            interaction_state=self.life_loop.interaction_state,
+            life_state=self.runtime.life_state,
+            interaction_state=self.runtime.interaction_state,
             proactive_interests=(
                 self.life_loop
                 .memory_manager
@@ -167,7 +176,7 @@ class ChatService:
             memory_id=self._next_interaction_memory_id(),
             memory_type=MemoryType.INTERACTION,
             content=text.strip(),
-            created_at=self.life_loop.current_time,
+            created_at=self.runtime.current_time,
             source=MemorySource.CONVERSATION,
             importance=importance,
             confidence=1.0,
@@ -176,7 +185,7 @@ class ChatService:
         decision = self.memory_manager.process(memory)
 
         if decision.action == "add":
-            return self.life_loop.memory_store.get(
+            return self.runtime.memory_store.get(
                 memory.memory_id
             )
 
@@ -188,7 +197,7 @@ class ChatService:
         prefix = "interaction:"
         index = 1
 
-        while self.life_loop.memory_store.get(
+        while self.runtime.memory_store.get(
             f"{prefix}{index}"
         ) is not None:
             index += 1
