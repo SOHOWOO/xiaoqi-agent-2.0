@@ -1,24 +1,25 @@
 from .models import (
-    AudioInput,
-    AudioOutput,
+    AudioRequest,
+    AudioResponse,
 )
 
-from .pipeline import (
-    VoicePipeline,
+from .provider import (
+    TTSProvider,
 )
+
+from .tts import (
+    VoiceCloneEngine,
+)
+
+from .stub import (
+    StubTTSProvider,
+)
+
 
 __all__ = [
-    "AudioInput",
-    "AudioOutput",
-    "VoicePipeline",
+    "AudioRequest",
+    "AudioResponse",
+    "TTSProvider",
+    "VoiceCloneEngine",
+    "StubTTSProvider",
 ]
-
-from .providers import (
-    WhisperRecognizer,
-    FastRTCInput,
-)
-
-__all__.extend([
-    "WhisperRecognizer",
-    "FastRTCInput",
-])
