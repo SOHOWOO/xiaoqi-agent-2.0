@@ -703,3 +703,149 @@ class LifeLoop:
         """当前互动状态。"""
 
         return self.simulator.interaction_state
+
+    # -------------------------------------------------------------
+    # External events / actions
+    # -------------------------------------------------------------
+
+    _RELATIONSHIP_EVENT_MAP = {
+        "positive_interaction": "user_interaction",
+        "conflict": "conflict",
+        "comfort": "comfort",
+        "mutual_help": "mutual_help",
+        "shared_experience": "shared_experience",
+    }
+
+    _NEUROCHEMICAL_EVENT_MAP = {
+        "positive_interaction": StimulusType.USER_INTERACTION,
+        "conflict": StimulusType.CONFLICT,
+        "comfort": StimulusType.PRAISE,
+        "mutual_help": StimulusType.ACHIEVEMENT,
+        "shared_experience": StimulusType.ACHIEVEMENT,
+    }
+
+    def receive_event(
+        self,
+        event: dict,
+    ) -> None:
+        """注入一次外部事件到生命链路（正式公开接口）。
+
+        事件驱动顺序：
+            外部事件 -> 关系 / 神经化学 -> 情绪 -> 记忆 -> 总线
+
+        event:
+            type: positive_interaction / conflict / comfort /
+                  mutual_help / shared_experience
+            intensity / severity: 0.0 ~ 1.0
+            message: 可选描述
+        """
+
+        event_type = event.get(
+            "type",
+            "positive_interaction",
+        )
+
+        intensity = float(
+            event.get(
+                "intensity",
+                event.get("severity", 1.0),
+            )
+        )
+
+        intensity = max(0.0, min(1.0, intensity))
+
+        message = event.get("message", "")
+
+        # 1. 互动时间
+        self.simulator.interaction_state.last_user_interaction_at = (
+            self.current_time
+        )
+
+        # 2. 关系
+        rel_type = self._RELATIONSHIP_EVENT_MAP.get(
+            event_type,
+            "user_interaction",
+        )
+
+        self.relationship_engine.update(
+            rel_type,
+            intensity=intensity,
+            now=self.current_time,
+        )
+
+        # 3. 神经化学 + 情绪
+        stimulus = self._NEUROCHEMICAL_EVENT_MAP.get(
+            event_type,
+            StimulusType.USER_INTERACTION,
+        )
+
+        self.neurochemical.apply_stimulus(
+            NeurochemicalStimulus(
+                stimulus,
+                intensity=intensity,
+            )
+        )
+
+        self.emotion.update_from_neurochemical(
+            self.neurochemical.state()
+        )
+
+        # 4. 情景记忆（事件记忆）
+        memory = MemoryRecord(
+            memory_id=(
+                "episodic:interaction:"
+                f"{len(self.memory_store)}"
+            ),
+            memory_type=MemoryType.EPISODIC,
+            content=(
+                f"用户与小七的互动："
+                f"{message or event_type}"
+            ),
+            created_at=self.current_time,
+            source=MemorySource.CONVERSATION,
+            importance=0.7,
+            confidence=1.0,
+        )
+
+        self.memory_manager.add_if_allowed(memory)
+
+        # 5. 总线事件
+        self.event_bus.publish(
+            "user_event",
+            {
+                "type": event_type,
+                "intensity": intensity,
+                "message": message,
+            },
+        )
+
+    def get_actions(self):
+        """只读评估当前会产生的主动行为（不消耗冷却）。
+
+        供 Life Lab / 调试观测内在动机。
+        """
+
+        ctx = ProactiveContext(
+            now=self.current_time,
+            life_state=self.life_state,
+            emotion_state=self.emotion.state(),
+            neuro_state=self.neurochemical.state(),
+            relationship_state=self.relationship_engine.state,
+            diary=self.diary,
+            interests=(
+                self.memory_manager
+                .proactive_manager
+                .all()
+            ),
+            last_user_interaction_at=(
+                self.simulator
+                .interaction_state
+                .last_user_interaction_at
+            ),
+            current_slot_id=(
+                self.life_state.current_slot_id
+            ),
+        )
+
+        return self.unified_proactive.peek(ctx)
+        return self.simulator.interaction_state

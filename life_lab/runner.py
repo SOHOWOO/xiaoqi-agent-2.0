@@ -1,60 +1,64 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime
 
 from core.life_loop import LifeLoop
 
 from life_lab.logger import SimulationLogger
-from life_lab.metrics import HealthMetrics
 from life_lab.reporter import Reporter
-from life_lab.scenarios.lonely_week import LonelyWeekScenario
+from life_lab.scenarios import SCENARIOS
 
 
-def run() -> bool:
-    """运行一次离线生命实验，返回 PASS / FAIL。"""
+def run(scenario_id: str = "001") -> bool:
+    """运行一次离线生命实验，返回 PASS / FAIL。
+
+    scenario_id: 001(失联) / 002(成长) / 003(冲突) / 004(主动)
+    """
+
+    scenario_cls = SCENARIOS.get(scenario_id)
+
+    if scenario_cls is None:
+        raise ValueError(
+            f"unknown scenario: {scenario_id!r} "
+            f"(available: {', '.join(sorted(SCENARIOS))})"
+        )
+
+    scenario = scenario_cls()
 
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    folder = f"logs/life_lab/{run_id}"
+    folder = f"logs/life_lab/{scenario_id}_{run_id}"
 
     logger = SimulationLogger(folder)
 
-    scenario = LonelyWeekScenario()
-
-    steps = scenario.steps()
-
+    # 隔离：始终使用内存版 LifeLoop，不触碰正常系统持久化数据。
     life = LifeLoop(
         start_time=scenario.start(),
         seed=scenario.seed(),
     )
 
-    records = []
+    records = scenario.run(life, logger)
 
-    for _ in range(steps):
-        scenario.step(life)
-
-        life.tick(
-            timedelta(minutes=scenario.tick_minutes())
-        )
-
-        snapshot = life.get_state()
-
-        logger.record(snapshot)
-        records.append(snapshot)
-
-    metrics = HealthMetrics().check(
-        records,
-        expected_steps=steps,
-    )
+    checks = scenario.assess(records)
 
     return Reporter().report(
-        metrics,
+        checks,
         run_id=run_id,
         folder=folder,
-        name=scenario.name,
+        scenario=scenario,
     )
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = argv if argv is not None else sys.argv[1:]
+
+    scenario_id = args[0] if args else "001"
+
+    ok = run(scenario_id)
+
+    raise SystemExit(0 if ok else 1)
 
 
 if __name__ == "__main__":
-    ok = run()
-    raise SystemExit(0 if ok else 1)
+    main()

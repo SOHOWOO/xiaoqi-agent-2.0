@@ -26,10 +26,23 @@ class SimulationLogger:
     def record(
         self,
         snapshot: dict,
+        *,
+        events: list | None = None,
+        motivations: list | None = None,
     ) -> None:
-        """记录一次快照。"""
+        """记录一次快照。
+
+        events: 本次 tick 发生的实验事件类型列表
+        motivations: 本次评估到的主动动机列表
+        """
 
         data = self._serialize(snapshot)
+
+        if events:
+            data["events"] = events
+
+        if motivations:
+            data["motivations"] = motivations
 
         with open(
             self.file,

@@ -83,6 +83,36 @@ class UnifiedProactiveEngine:
 
         return actions
 
+    def peek(
+        self,
+        ctx: ProactiveContext,
+    ) -> List[ProactiveAction]:
+        """只读评估当前会产生的主动行为（不消耗冷却）。
+
+        供 Life Lab 观测 / 调试使用；不修改 gate 状态。
+        """
+
+        motivations = self.motivation_engine.evaluate(ctx)
+
+        signals: List[ProactiveSignal] = []
+
+        for signal in self.planner.plan(motivations, ctx):
+            if self.gate.decide(ctx, signal):
+                signals.append(signal)
+
+        signals.sort(
+            key=lambda s: s.score,
+            reverse=True,
+        )
+
+        return [
+            ProactiveAction(
+                signal=signal,
+                message=self._build_message(signal),
+            )
+            for signal in signals[:self.max_actions]
+        ]
+
     def _build_message(
         self,
         signal: ProactiveSignal,

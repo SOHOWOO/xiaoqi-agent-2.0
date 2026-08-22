@@ -1,54 +1,96 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+_EXPERIMENT_NAMES = {
+    "lonely_week": "实验 001：7 天失联",
+    "happy_growth": "实验 002：关系建立",
+    "conflict_recovery": "实验 003：关系恢复",
+    "proactive_test": "实验 004：主动动机",
+}
+
 
 class Reporter:
-    """生成实验报告并判定 PASS / FAIL。"""
-
-    _LABELS = {
-        "completed": "完整跑完所有 Tick",
-        "energy_in_range": "能量保持在 0~1",
-        "energy_varies": "能量有动态变化",
-        "emotion_varies": "情绪持续演化",
-        "relationship_varies": "关系随时间合理变化",
-        "relationship_valid": "关系数值有效（0~1）",
-    }
+    """生成实验报告（控制台 + summary.md）。"""
 
     def report(
         self,
-        metrics: dict,
+        checks: dict,
         *,
         run_id: str,
         folder: str,
-        name: str,
+        scenario,
     ) -> bool:
-        all_pass = all(
-            metrics.get(key)
-            for key in self._LABELS
+        all_pass = all(checks.values())
+
+        title = _EXPERIMENT_NAMES.get(
+            scenario.name,
+            f"实验：{scenario.name}",
         )
 
         lines = [
-            "",
             "=" * 48,
             "小七生命实验报告",
             "=" * 48,
-            f"实验：{name}",
+            f"{title}",
             f"运行号：{run_id}",
             f"数据目录：{folder}",
             "",
             "健康检查：",
         ]
 
-        for key, label in self._LABELS.items():
-            status = "PASS" if metrics.get(key) else "FAIL"
-            lines.append(
-                f"  [{status}] {label}"
-            )
+        for label, ok in checks.items():
+            status = "PASS" if ok else "FAIL"
+            lines.append(f"  [{status}] {label}")
 
         lines.append("")
-        lines.append("结果：" + ("PASS" if all_pass else "FAIL"))
+        lines.append(f"结果：{'PASS' if all_pass else 'FAIL'}")
         lines.append("=" * 48)
-        lines.append("")
 
         print("\n".join(lines))
 
+        self._write_summary(
+            folder,
+            title=title,
+            run_id=run_id,
+            checks=checks,
+            all_pass=all_pass,
+        )
+
         return all_pass
+
+    @staticmethod
+    def _write_summary(
+        folder: str,
+        *,
+        title: str,
+        run_id: str,
+        checks: dict,
+        all_pass: bool,
+    ) -> None:
+        """写 summary.md。"""
+
+        lines = [
+            f"# {title}",
+            "",
+            f"- 运行号：{run_id}",
+            f"- 数据目录：`{folder}`",
+            "",
+            "## 健康检查",
+            "",
+        ]
+
+        for label, ok in checks.items():
+            lines.append(
+                f"- [{'x' if ok else ' '}] {label}"
+            )
+
+        lines.append("")
+        lines.append(f"## 结果：{'PASS' if all_pass else 'FAIL'}")
+        lines.append("")
+
+        out = Path(folder) / "summary.md"
+        out.write_text(
+            "\n".join(lines),
+            encoding="utf-8",
+        )

@@ -60,8 +60,7 @@ def test_lonely_week_scenario_params():
 
     assert scenario.name == "lonely_week"
     assert scenario.steps() == 7 * 24 * 4
-    assert scenario.tick_minutes() == 15
-    assert scenario.duration() == timedelta(days=7)
+    assert scenario.seed() == 42
 
 
 def test_logger_writes_jsonl(tmp_path):
@@ -126,42 +125,40 @@ def test_metrics_detects_energy_out_of_range():
     assert metrics["energy_in_range"] is False
 
 
-def test_reporter_pass_and_fail(capsys):
+def test_reporter_pass_and_fail(capsys, tmp_path):
     reporter = Reporter()
 
-    ok_metrics = {
-        "completed": True,
-        "energy_in_range": True,
-        "energy_varies": True,
-        "emotion_varies": True,
-        "relationship_varies": True,
-        "relationship_valid": True,
+    class _FakeScenario:
+        name = "lonely_week"
+
+    ok_checks = {
+        "完整跑完": True,
+        "能量有效": True,
+        "情绪演化": True,
     }
 
     assert reporter.report(
-        ok_metrics,
+        ok_checks,
         run_id="x",
-        folder="f",
-        name="lonely_week",
+        folder=str(tmp_path),
+        scenario=_FakeScenario(),
     ) is True
 
-    bad_metrics = dict(ok_metrics)
-    bad_metrics["completed"] = False
+    bad_checks = dict(ok_checks)
+    bad_checks["完整跑完"] = False
 
     assert reporter.report(
-        bad_metrics,
+        bad_checks,
         run_id="x",
-        folder="f",
-        name="lonely_week",
+        folder=str(tmp_path),
+        scenario=_FakeScenario(),
     ) is False
+
+    assert (tmp_path / "summary.md").exists()
 
 
 def test_runner_runs_short_experiment():
-    """跑一小段（1 天）实验，验证 runner 链路完整。"""
-
-    from datetime import datetime
-
-    from life_lab.runner import run as _runner
+    """跑一段短实验，验证 runner 链路完整。"""
 
     import life_lab.runner as runner_module
 
@@ -171,30 +168,39 @@ def test_runner_runs_short_experiment():
         def start(self):
             return make_aware(2026, 8, 22, 8, 0)
 
-        def duration(self):
-            return timedelta(days=3)
-
-        def tick_minutes(self):
-            return 60
-
         def seed(self):
             return 42
 
-        def steps(self):
-            return int(
-                self.duration().total_seconds()
-                / (self.tick_minutes() * 60)
-            )
+        def run(self, life, logger):
+            records = []
+            for _ in range(24):
+                life.tick(timedelta(hours=1))
+                snapshot = life.get_state()
+                logger.record(snapshot)
+                records.append(snapshot)
+            return records
 
-        def step(self, life):
-            return None
+        def assess(self, records):
+            return {
+                "跑了 24 tick": len(records) == 24,
+                "能量有效": all(
+                    0.0 <= r["life"]["energy"] <= 1.0
+                    for r in records
+                ),
+            }
 
-    original = runner_module.LonelyWeekScenario
-    runner_module.LonelyWeekScenario = _ShortScenario
+    runner_module.SCENARIOS["999"] = _ShortScenario
 
     try:
-        ok = _runner()
+        ok = runner_module.run("999")
     finally:
-        runner_module.LonelyWeekScenario = original
+        del runner_module.SCENARIOS["999"]
 
     assert ok is True
+
+
+def test_runner_unknown_scenario():
+    import life_lab.runner as runner_module
+
+    with pytest.raises(ValueError):
+        runner_module.run("9999")
