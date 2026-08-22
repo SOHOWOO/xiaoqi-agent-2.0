@@ -2,53 +2,45 @@ from __future__ import annotations
 
 from typing import List
 
+from ..motivation import ActionPlanner, MotivationEngine
 from .models import (
     ProactiveAction,
     ProactiveContext,
     ProactiveSignal,
 )
 from .scheduler import ProactiveGate
-from .signals import (
-    DiarySignalGenerator,
-    EmotionSignalGenerator,
-    MemorySignalGenerator,
-    NeurochemicalSignalGenerator,
-    TimeSignalGenerator,
-)
 
 
 class UnifiedProactiveEngine:
     """统一主动行为引擎（Proactive Engine 3.0）。
 
-    多驱动器产生候选信号 → ProactiveGate 门控 → 排序选优 → 生成消息。
+    决策链路：
+        State -> Motivation(Desire) -> Action Planner -> Proactive
 
-    驱动器：
-    - 情绪（孤独/焦虑/兴奋）
-    - 神经化学（依恋需求 + 久未互动）
-    - 时间 / 作息（晚间长时间无互动）
-    - 日记回顾
-    - 记忆关注（重要事项冷却到期）
-
-    对应计划书：Desire System + Proactive Engine，
-    决定"什么时候主动找你"。
+    - MotivationEngine：从神经化学 / 情绪 / 关系 / 记忆 / 作息提炼
+      高阶动机（渴望联系 / 想安慰 / 想分享 / 想提醒 / 想玩耍）
+    - ActionPlanner：动机 -> 候选信号
+    - ProactiveGate：冷却 / 睡眠 / 精力保护门控
+    - 排序选优，生成最终主动消息
     """
 
     def __init__(
         self,
-        generators: list | None = None,
+        motivation_engine: MotivationEngine | None = None,
+        planner: ActionPlanner | None = None,
         gate: ProactiveGate | None = None,
         max_actions: int = 1,
     ) -> None:
-        self.generators = (
-            generators
-            if generators is not None
-            else [
-                EmotionSignalGenerator(),
-                NeurochemicalSignalGenerator(),
-                TimeSignalGenerator(),
-                DiarySignalGenerator(),
-                MemorySignalGenerator(),
-            ]
+        self.motivation_engine = (
+            motivation_engine
+            if motivation_engine is not None
+            else MotivationEngine()
+        )
+
+        self.planner = (
+            planner
+            if planner is not None
+            else ActionPlanner()
         )
 
         self.gate = (
@@ -63,14 +55,15 @@ class UnifiedProactiveEngine:
         self,
         ctx: ProactiveContext,
     ) -> List[ProactiveAction]:
-        """收集信号、门控、决策，返回要执行的主动行为。"""
+        """提炼动机、规划、门控、决策，返回要执行的主动行为。"""
+
+        motivations = self.motivation_engine.evaluate(ctx)
 
         signals: List[ProactiveSignal] = []
 
-        for generator in self.generators:
-            for signal in generator.generate(ctx):
-                if self.gate.decide(ctx, signal):
-                    signals.append(signal)
+        for signal in self.planner.plan(motivations, ctx):
+            if self.gate.decide(ctx, signal):
+                signals.append(signal)
 
         signals.sort(
             key=lambda s: s.score,
