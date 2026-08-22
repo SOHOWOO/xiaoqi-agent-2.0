@@ -87,5 +87,19 @@ python -m pytest
 
 - **阶段1（已完成）**：升级 xiaoqi-agent 为生命核心 —— Memory 2.0 / Emotion / Neurochemical / Diary / Proactive
 - **阶段1.5（已完成）**：核心生命系统稳定化 —— 双时间尺度积分 / EMA 数值一致 / 关系 2.0 / 动机层 / 记忆生命周期 / WAL + 版本 / LLM 降级 / xiaoqi-bus
+- **阶段1.6（已完成）**：核心调试 + Life Lab —— 修复关系衰减 bug / 失联链路(PROLONGED_ABSENCE) / 指数退避主动 / get_state 快照
 - **阶段2**：接入 Open-LLM-VTuber（实时语音/VAD/Whisper/打断/TTS/视觉）—— 实现其 `AgentInterface`
 - **阶段3**：接入 Soul-of-Waifu（VRM 身体/表情/动作/桌宠）—— 通过 `Actions.expressions` 表情通道
+
+## Life Lab 离线生命实验
+
+```bash
+python -m life_lab.runner
+```
+
+独立观察者框架，验证小七在**无用户输入 / 无 LLM / 无 Avatar** 下独立运行 7 天（672 × 15min tick）：
+- 输出 `logs/life_lab/<run_id>/state.jsonl`（672 行状态快照）
+- 健康检查：能量范围 / 情绪演化 / 关系合理变化
+- 实验 001 lonely_week：energy∈[0,1]、lonely 0.13→0.73、attachment 0.2→0.189、主动 5 次、日记 7 篇 —— **PASS**
+
+实验 → 日志 → 报告 → 修改 core → 再实验，形成生命测试闭环。
