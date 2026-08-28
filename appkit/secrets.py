@@ -74,8 +74,8 @@ class SecretStore:
         "openai": "OPENAI_API_KEY",
     }
 
-    def __init__(self, path: Path | None = None) -> None:
-        self.path = path or get_secrets_path()
+    def __init__(self, path: Path | str | None = None) -> None:
+        self.path = Path(path) if path else get_secrets_path()
         self._data: dict[str, str] = {}
         self._load()
 

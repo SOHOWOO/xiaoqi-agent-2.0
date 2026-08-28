@@ -54,8 +54,8 @@ DEFAULTS: dict[str, Any] = {
 class ConfigManager:
     """应用配置读写（分层合并默认值）。"""
 
-    def __init__(self, path: Path | None = None) -> None:
-        self.path = path or get_config_path()
+    def __init__(self, path: Path | str | None = None) -> None:
+        self.path = Path(path) if path else get_config_path()
         self._data: dict = {}
         self._load()
 
