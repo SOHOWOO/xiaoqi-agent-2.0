@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from web_runtime import WebRuntime
 from vrm_validator import check_available_model
+from voice.status import build_voice_status
 
 
 ROOT = Path(__file__).resolve().parent
@@ -189,6 +190,12 @@ class WebHandler(BaseHTTPRequestHandler):
         if path == "/api/vrm-status":
             self._send_json(
                 check_available_model()
+            )
+            return
+
+        if path == "/api/voice/status":
+            self._send_json(
+                build_voice_status()
             )
             return
 

@@ -11,7 +11,7 @@ import AvatarVRM from "./avatar/avatar_vrm.js";
 import AudioInputAdapter from "./voice/audio_input_adapter.js";
 import VoicePipeline from "./voice/voice_pipeline.js";
 import { BrowserSTT, ServerSTT } from "./voice/stt_adapter.js";
-import { BrowserTTS } from "./voice/tts_adapter.js";
+import { createTTSAdapter } from "./voice/tts_adapter.js";
 
 /* ─────────── 3D Avatar（VRM → Three → 2D fallback） ─────────── */
 
@@ -427,6 +427,80 @@ function submitMessage() {
 }
 sendBtn.addEventListener("click", submitMessage);
 phoneInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitMessage(); } });
+
+/* ─────────── 语音管道 ─────────── */
+
+let voicePipeline = null;
+let voiceActive = false;
+
+async function setupVoice() {
+  try {
+    const tts = await createTTSAdapter();
+    const stt = new BrowserSTT();
+
+    voicePipeline = new VoicePipeline({
+      audioInput: new AudioInputAdapter(),
+      stt,
+      tts,
+      api: {
+        chat: async (text) => {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          if (data.life_state) applyWorldState(data.life_state);
+          return data.reply;
+        },
+      },
+    });
+
+    voicePipeline.setAvatar(avatar);
+    voicePipeline.onBubble = (userText, replyText) => {
+      appendChat("user", userText, new Date().toISOString());
+      appendChat("assistant", replyText, new Date().toISOString());
+    };
+
+    const micBtn = document.getElementById("mic-btn");
+    if (!micBtn) return;
+
+    micBtn.disabled = false;
+    micBtn.title = tts ? "说话" : "说话（TTS 不可用）";
+
+    micBtn.addEventListener("mousedown", async () => {
+      if (voiceActive) return;
+      voiceActive = true;
+      micBtn.classList.add("listening");
+      try {
+        await voicePipeline.startListening();
+      } catch (e) {
+        showTip(`🎤 ${e.message}`);
+        voiceActive = false;
+        micBtn.classList.remove("listening");
+      }
+    });
+
+    const endListen = async () => {
+      if (!voiceActive) return;
+      voiceActive = false;
+      micBtn.classList.remove("listening");
+      try {
+        await voicePipeline.stopListening();
+        renderHistory();
+      } catch (e) {
+        showTip(`🎤 ${e.message}`);
+      }
+    };
+
+    micBtn.addEventListener("mouseup", endListen);
+    micBtn.addEventListener("mouseleave", endListen);
+    micBtn.addEventListener("touchend", endListen);
+  } catch (e) {
+    console.warn("[voice] setup failed:", e);
+  }
+}
 
 /* ─────────── 启动 ─────────── */
 

@@ -42,6 +42,51 @@
 - **开发测试**：`http://127.0.0.1:8000/avatar-test`（表情/口型/眨眼/LookAt/移动/LifeLoop/说话）
 - 制作流程见 `docs/avatar-development.md`
 
+## 语音（Voice）
+
+### 架构
+
+```text
+麦克风 → AudioInputAdapter → VAD(BrowserSpeech) → STT → /api/chat → Core → TTS → 音频播放 → 嘴型同步
+```
+
+- **STT**：faster-whisper（`voice_server.py`，可选依赖，未安装返回 clear `unavailable`） / 浏览器 Web Speech API（fallback）
+- **TTS**：CosyVoice（`voice_server.py` HTTP `/api/tts`，可选依赖） / 浏览器 SpeechSynthesis（fallback，明确标注 `kind: "browser"`）
+- **VoiceProfile**：`voice/profiles/xiaoqi/profile.json`（引擎/语速/音调/情绪/参考音频配置），替换 reference.wav 即可换声音，真人素材不入库
+- **状态**：`GET /api/voice/status` 返回真实语音状态（不写死）
+- **语音与文字共用 Core**（`/api/chat`），记忆/情绪/关系一致
+- 语音不可用时自动降级文字聊天，永不崩溃
+
+### 查看语音状态
+
+```bash
+curl http://127.0.0.1:8000/api/voice/status
+# 预期：stt.available=false, tts.available=false, voice_profile=xiaoqi
+```
+
+### 安装 faster-whisper（STT 本地）
+
+```bash
+pip install faster-whisper
+python voice_server.py        # 启动 WebSocket STT: ws://127.0.0.1:8769
+```
+
+### 配置 CosyVoice（TTS 本地服务器）
+
+```bash
+pip install cosyvoice
+export XIAOQI_COSYVOICE_MODEL_DIR=/path/to/cosyvoice/model
+voice_server.py               # 自动启用 HTTP /api/tts
+```
+
+### 创建声音克隆（VoiceProfile）
+
+```bash
+# 1. 将 reference.wav 放入 voice/profiles/xiaoqi/
+# 2. 确认 profile.json 中 reference_audio 指向正确
+# 3. 重启服务，TTS 自动使用克隆声音
+```
+
 ## 启动
 
 ```bash

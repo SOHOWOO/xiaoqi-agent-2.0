@@ -1,0 +1,10 @@
+{
+  "name": "xiaoqi",
+  "engine": "cosyvoice",
+  "reference_audio": "reference.wav",
+  "language": "zh",
+  "speed": 1.0,
+  "pitch": 1.0,
+  "emotion": "neutral",
+  "note": "把小七的声音样本命名为 reference.wav 放入本目录即可启用声音克隆。真人声音素材不入库，仅引用路径。"
+}

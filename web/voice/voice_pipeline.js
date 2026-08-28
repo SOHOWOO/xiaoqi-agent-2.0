@@ -98,9 +98,14 @@ class VoicePipeline {
     return reply;
   }
 
-  /* 说一句话 */
+  /* 说一句话（TTS 为 null 时仅返回文字，不播放） */
   async speak(text) {
-    if (!text || !this.tts) return;
+    if (!text) return;
+    if (!this.tts) {
+      // TTS unavailable：静默返回，避免崩溃
+      this.state.reset();
+      return;
+    }
     this.state.toSpeaking();
 
     return new Promise((resolve) => {
