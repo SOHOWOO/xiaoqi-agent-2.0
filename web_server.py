@@ -180,7 +180,7 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urlparse(self.path).path
 
-        if path not in ("/api/chat", "/api/action"):
+        if path != "/api/chat":
             self.send_error(
                 HTTPStatus.NOT_FOUND,
                 "Not found",
@@ -226,12 +226,6 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         message = payload.get("message")
-
-        if path == "/api/action":
-            self._send_json(
-                RUNTIME.handle_action(payload)
-            )
-            return
 
         if (
             not isinstance(message, str)

@@ -1,89 +1,48 @@
 /* ═══════════════════════════════════════════════════
-   小七 · 虚拟卧室 前端逻辑
-   房间驱动 / 物件交互 / 气泡对话 / 主动行为 / HUD / 设置
+   小七 · Living World ZERO UI
+   世界驱动（LifeLoop -> Avatar）+ 小七手机 + 心灵观察站
+   房间纯视觉，无交互；聊天只在手机；信息只在 Observer。
    ═══════════════════════════════════════════════════ */
 
-import AvatarAdapter from "./avatar/avatar_adapter.js";
 import Avatar2D from "./avatar/avatar_2d.js";
 
-/* 选择 2D 实现；未来切 avatar_vrm.js */
 const avatar = new Avatar2D();
 
-/* ─────────── 元素 ─────────── */
 const bodyEl = document.body;
-const roomEl = document.getElementById("room");
 const avatarMount = document.getElementById("avatar-mount");
-const interactTip = document.getElementById("interact-tip");
 
-const hudEl = document.getElementById("hud");
-const hudEmotion = document.getElementById("hud-emotion");
-const hudEnergy = document.getElementById("hud-energy");
-const hudFatigue = document.getElementById("hud-fatigue");
-const hudActivity = document.getElementById("hud-activity");
+const phoneEntry = document.getElementById("phone-entry");
+const phoneEl = document.getElementById("phone");
+const phoneMessagesEl = document.getElementById("phone-messages");
+const phoneInput = document.getElementById("phone-input");
+const sendBtn = document.getElementById("send-btn");
+const phoneStatusEl = document.getElementById("phone-status");
+const phoneClose = document.getElementById("phone-close");
 
-const chatBtn = document.getElementById("chat-btn");
-const relationBtn = document.getElementById("relation-btn");
-const scheduleBtn = document.getElementById("schedule-btn");
-const settingsBtn = document.getElementById("settings-btn");
-const voiceBtn = document.getElementById("voice-btn");
+const observerEntry = document.getElementById("observer-entry");
+const observerEl = document.getElementById("observer");
+const observerContent = document.getElementById("observer-content");
+const observerClose = document.getElementById("observer-close");
 
-const chatDrawer = document.getElementById("chat-drawer");
-const chatHistory = document.getElementById("chat-history");
-const chatInput = document.getElementById("chat-input");
-const chatSend = document.getElementById("chat-send");
-const chatClose = document.getElementById("chat-close");
-
-const relationPanel = document.getElementById("relation-panel");
-const relationContent = document.getElementById("relation-content");
-const relationClose = document.getElementById("relation-close");
-
-const schedulePanel = document.getElementById("schedule-panel");
-const scheduleContent = document.getElementById("schedule-content");
-const scheduleClose = document.getElementById("schedule-close");
-
-const settingsPanel = document.getElementById("settings-panel");
-const settingsClose = document.getElementById("settings-close");
-const hudToggle = document.getElementById("hud-toggle");
-const setSpeed = document.getElementById("set-speed");
-
-/* ─────────── 设置（localStorage） ─────────── */
+/* ─────────── 设置（localStorage，Observer 面板修改） ─────────── */
 const SETTINGS_KEY = "xiaoqi_room_settings";
-
 const defaultSettings = {
   name: "小七",
   user_name: "主人",
-  show_hud: true,
   allow_proactive: true,
   night_mode: false,
   sound: false,
 };
-
-function loadSettings() {
-  try {
-    return { ...defaultSettings, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
-  } catch {
-    return { ...defaultSettings };
-  }
-}
-const settings = loadSettings();
+let settings = { ...defaultSettings };
+try {
+  settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
+} catch { /* ignore */ }
 
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-function applySettings() {
-  document.getElementById("set-name").value = settings.name;
-  document.getElementById("set-user-name").value = settings.user_name;
-  document.getElementById("set-hud").checked = settings.show_hud;
-  document.getElementById("set-proactive").checked = settings.allow_proactive;
-  document.getElementById("set-night").checked = settings.night_mode;
-  document.getElementById("set-sound").checked = settings.sound;
-
-  hudEl.classList.toggle("hidden", !settings.show_hud);
-  bodyEl.classList.toggle("night-mode", settings.night_mode);
-}
-
-/* ─────────── 状态 → 表现映射 ─────────── */
+/* ─────────── 状态 → 表现（LifeLoop 驱动，非用户点击） ─────────── */
 
 const ACTIVITY_AVATAR = {
   sleep: "sleeping",
@@ -136,122 +95,36 @@ function applyWorldState(lifeState) {
   if (settings.night_mode && period === "day") period = "night";
   bodyEl.className = period;
 
+  // 情绪 → 表情（Avatar2D）
+  avatar.setState(EMOTION_CLASS[lifeState.dominant_emotion] || "idle");
+
+  // 活动 → 动作 + 位置（LifeLoop 决定，小七自己生活）
   const activity = lifeState.current_activity || "";
-
-  avatar.setState(
-    EMOTION_CLASS[lifeState.dominant_emotion] || "idle"
-  );
-
   const state = ACTIVITY_AVATAR[activity];
   if (state) avatar.play(state);
-
   const pos = ACTIVITY_POSITION[activity];
   if (pos) avatar.moveTo(pos);
 
-  const energy = lifeState.energy ?? 1;
-  if (energy < 0.35) avatar.setState("tired");
-
-  hudEmotion.textContent =
-    { happy: "开心", calm: "平静", lonely: "孤独", excited: "兴奋", anxious: "焦虑", angry: "生气" }[lifeState.dominant_emotion]
-    || lifeState.dominant_emotion || "-";
-  hudEnergy.textContent = `${Math.round((energy ?? 0) * 100)}%`;
-  hudFatigue.textContent = `${Math.round((lifeState.fatigue ?? 0) * 100)}%`;
-  hudActivity.textContent = lifeState.current_activity || "-";
+  // 疲劳 → 动作变慢
+  if ((lifeState.energy ?? 1) < 0.35) avatar.setState("tired");
 }
 
-/* ─────────── 物件交互 → /api/action ─────────── */
+/* ─────────── 小七手机（聊天） ─────────── */
 
-function showTip(text) {
-  interactTip.textContent = text;
-  interactTip.classList.remove("hidden");
-  clearTimeout(showTip._timer);
-  showTip._timer = setTimeout(() => interactTip.classList.add("hidden"), 2600);
-}
-
-async function sendAction(name, target) {
-  try {
-    const res = await fetch("/api/action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: name, target }),
-    });
-    const data = await res.json();
-
-    if (target && target !== "lamp") {
-      avatar.moveTo(target);
-      avatar.play(data.behavior);
-    }
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-async function clickObject(target) {
-  const labels = {
-    bed: "让她去休息",
-    desk: "让她去阅读",
-    sofa: "让她去放松",
-    window: "窗外",
-    lamp: "台灯",
-    xiaoqi: "小七",
-  };
-
-  if (target === "window") {
-    showTip("窗外 · 时间与天气会随时间变化");
-    return;
-  }
-
-  if (target === "lamp") {
-    const night = bodyEl.classList.contains("night") || bodyEl.classList.contains("deep-night");
-    showTip(night ? "台灯已关闭" : "台灯已打开");
-    return;
-  }
-
-  await sendAction("move_to", target);
-  showTip(`${labels[target]} · ${behText(target)}`);
-}
-
-function behText(target) {
-  return {
-    bed: "休息中", desk: "阅读中", sofa: "放松中",
-  }[target] || "";
-}
-
-document.querySelectorAll(".obj[data-target]").forEach((el) => {
-  el.addEventListener("click", () => clickObject(el.dataset.target));
-});
-
-avatarMount.addEventListener("click", async () => {
-  await sendAction("interact", "xiaoqi");
-  showTip("小七：来啦，怎么了？");
-});
-
-roomEl.addEventListener("click", (event) => {
-  if (!event.target.closest(".obj") && !event.target.closest("#avatar-mount")) {
-    avatar.moveTo("center");
-  }
-});
-
-/* ─────────── 气泡对话 ─────────── */
-
-const HISTORY_KEY = "xiaoqi_room_history";
-
+const HISTORY_KEY = "xiaoqi_phone_history";
 function loadHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
   catch { return []; }
 }
 function saveHistory(h) { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
-
 function formatTime(iso) {
-  try {
-    return new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-  } catch { return ""; }
+  try { return new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }); }
+  catch { return ""; }
 }
 
-function renderDrawerMessage(msg) {
+function renderPhoneMessage(msg) {
   const wrapper = document.createElement("div");
-  wrapper.className = `chat-msg ${msg.role}`;
+  wrapper.className = `phone-msg ${msg.role}`;
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   bubble.textContent = msg.text;
@@ -260,34 +133,42 @@ function renderDrawerMessage(msg) {
   meta.className = "meta";
   meta.innerHTML = `<span>${formatTime(msg.time)}</span>` + (msg.role === "user" ? '<span class="read">已读 ✓</span>' : "");
   wrapper.appendChild(meta);
-  chatHistory.appendChild(wrapper);
-  chatHistory.scrollTop = chatHistory.scrollHeight;
+  phoneMessagesEl.appendChild(wrapper);
+  phoneMessagesEl.scrollTop = phoneMessagesEl.scrollHeight;
 }
 
 function renderHistory() {
-  chatHistory.innerHTML = "";
-  loadHistory().forEach(renderDrawerMessage);
+  phoneMessagesEl.innerHTML = "";
+  loadHistory().forEach(renderPhoneMessage);
 }
 
-function appendMessage(role, text, time) {
+function appendChat(role, text, time) {
   const history = loadHistory();
   history.push({ role, text, time: time || new Date().toISOString() });
   if (history.length > 200) history.splice(0, history.length - 200);
   saveHistory(history);
-  renderDrawerMessage({ role, text, time: time || new Date().toISOString() });
+  renderPhoneMessage({ role, text, time: time || new Date().toISOString() });
 }
 
-/* ─────────── 小七说话（气泡 + 抽屉） ─────────── */
+/* ─────────── 主动消息 → 手机未读红点 ─────────── */
 
-function xiaoqiSpeak(text) {
-  avatar.talk();
-  avatar.showBubble(text);
-  appendMessage("assistant", text, new Date().toISOString());
-  setTimeout(() => { avatar.stopTalking(); }, Math.min(text.length * 120, 6000));
-  setTimeout(() => avatar.hideBubble(), Math.min(text.length * 120, 6000) + 2500);
+function notifyProactive(content) {
+  phoneEntry.querySelector(".entry-dot").classList.add("unread");
+  // 主动消息只进入手机，不在房间气泡显示
+  if (phoneEl.classList.contains("hidden")) return;
+  appendChat("assistant", content, new Date().toISOString());
 }
 
-/* ─────────── 主动行为 ─────────── */
+/* ─────────── API ─────────── */
+
+async function loadStatus() {
+  try {
+    const res = await fetch("/api/status");
+    const data = await res.json();
+    applyWorldState(data.life_state);
+    phoneStatusEl.textContent = "在线";
+  } catch { phoneStatusEl.textContent = "离线"; }
+}
 
 async function pollProactive() {
   if (!settings.allow_proactive) return;
@@ -296,18 +177,13 @@ async function pollProactive() {
     if (!res.ok) return;
     const data = await res.json();
     (data.messages || []).forEach((msg) => {
-      if (msg.content) {
-        avatar.setState("proactive");
-        setTimeout(() => xiaoqiSpeak(msg.content), 500);
-      }
+      if (msg.content) notifyProactive(msg.content);
     });
   } catch { /* 静默 */ }
 }
 
-/* ─────────── 发送消息 ─────────── */
-
 async function sendMessage(text) {
-  chatSend.disabled = true;
+  sendBtn.disabled = true;
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -316,131 +192,202 @@ async function sendMessage(text) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    xiaoqiSpeak(data.reply);
+    appendChat("assistant", data.reply, new Date().toISOString());
     if (data.life_state) applyWorldState(data.life_state);
+    phoneStatusEl.textContent = "在线";
   } catch (error) {
-    xiaoqiSpeak(`（小七暂时没回应：${error.message}）`);
+    appendChat("assistant", `（小七暂时没回应：${error.message}）`);
   } finally {
-    chatSend.disabled = false;
-    chatInput.focus();
+    sendBtn.disabled = false;
+    phoneInput.focus();
   }
 }
 
-function submitChat() {
-  const text = chatInput.value.trim();
-  if (!text) return;
-  appendMessage("user", text, new Date().toISOString());
-  chatInput.value = "";
-  sendMessage(text);
-}
+/* ─────────── Observer（信息 / 设置） ─────────── */
 
-/* ─────────── 面板数据（真实 API） ─────────── */
+let observerData = null;
+
+async function loadObserver() {
+  try {
+    const res = await fetch("/api/observer");
+    if (!res.ok) return;
+    observerData = await res.json();
+    renderObserverView("emotion");
+  } catch {
+    observerContent.innerHTML = '<div class="obs-empty">暂时无法连接小七的心灵</div>';
+  }
+}
 
 function pct(v) { return Math.round((v ?? 0) * 100); }
 function bar(v, label) {
   return `<div class="obs-row"><span>${label}</span><b>${pct(v)}%</b></div><div class="obs-bar"><i style="width:${pct(v)}%"></i></div>`;
 }
 
-async function openRelation() {
-  relationPanel.classList.remove("hidden");
-  try {
-    const res = await fetch("/api/observer");
-    const d = await res.json();
-    const r = d.relationship;
-    relationContent.innerHTML =
-      `<div class="obs-row"><span>信任</span><b>${pct(r.trust)}%</b></div><div class="obs-bar"><i style="width:${pct(r.trust)}%"></i></div>` +
-      `<div class="obs-row"><span>依恋</span><b>${pct(r.attachment)}%</b></div><div class="obs-bar"><i style="width:${pct(r.attachment)}%"></i></div>` +
-      `<div class="obs-row"><span>熟悉</span><b>${pct(r.familiarity)}%</b></div><div class="obs-bar"><i style="width:${pct(r.familiarity)}%"></i></div>` +
-      `<div class="obs-row"><span>共同经历</span><b>${pct(r.shared_experience)}%</b></div><div class="obs-bar"><i style="width:${pct(r.shared_experience)}%"></i></div>` +
-      `<div class="obs-row"><span>阶段</span><b>${r.stage || "陌生"}</b></div>` +
-      `<div class="obs-row"><span>互动次数</span><b>${r.interaction_count || 0}</b></div>`;
-  } catch {
-    relationContent.innerHTML = '<div class="obs-row">无法连接</div>';
-  }
+const MOOD_LABEL = { happy: "开心", calm: "平静", lonely: "孤独", excited: "兴奋", anxious: "焦虑", angry: "生气" };
+const NEURO_LABEL = { dopamine: "多巴胺", serotonin: "血清素", oxytocin: "催产素", cortisol: "皮质醇", endorphin: "内啡肽", noradrenaline: "去甲肾上腺素" };
+const TYPE_LABEL = { canonical: "真实记忆", interaction: "互动", virtual_life: "生活", episodic: "情景", semantic: "事实", relationship: "关系", diary: "日记" };
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-async function openSchedule() {
-  schedulePanel.classList.remove("hidden");
-  try {
-    const res = await fetch("/api/schedule");
-    const d = await res.json();
-    const slots = d.today || [];
-    scheduleContent.innerHTML =
-      `<div class="obs-row"><span>当前</span><b>${d.current_activity || "—"}</b></div>` +
-      slots.map((s) => `<div class="obs-row"><span>${s.start} - ${s.end}</span><b>${s.name}</b></div>`).join("");
-  } catch {
-    scheduleContent.innerHTML = '<div class="obs-row">无法连接</div>';
+function renderObserverView(view) {
+  const d = observerData;
+  let html = "";
+
+  if (view === "emotion" && d) {
+    html += `<div class="obs-card"><h4>💗 当前情绪 · ${MOOD_LABEL[d.emotion.dominant] || d.emotion.dominant}</h4>`;
+    for (const [k, v] of Object.entries(d.emotion.current)) html += bar(v, MOOD_LABEL[k] || k);
+    html += "</div>";
+    html += `<div class="obs-card"><h4>🧪 神经化学</h4>`;
+    for (const [k, v] of Object.entries(d.neurochemical)) html += bar(v, NEURO_LABEL[k] || k);
+    html += "</div>";
   }
+
+  if (view === "relation" && d) {
+    const r = d.relationship;
+    html += `<div class="obs-card"><h4>❤️ 与小七的关系</h4>`;
+    html += bar(r.trust, "信任");
+    html += bar(r.attachment, "依恋");
+    html += bar(r.familiarity, "熟悉");
+    html += bar(r.shared_experience, "共同经历");
+    html += `<div class="obs-row"><span>阶段</span><b>${r.stage ?? "陌生"}</b></div>`;
+    html += `<div class="obs-row"><span>互动次数</span><b>${r.interaction_count ?? 0}</b></div>`;
+    html += "</div>";
+  }
+
+  if (view === "diary" && d) {
+    if (!d.diaries.length) {
+      html = '<div class="obs-empty">小七还没有写下日记</div>';
+    } else {
+      html = d.diaries.map((e) =>
+        `<div class="obs-diary"><div class="date">📖 ${e.date} · ${(e.mood_tags || []).join(" / ") || "平静"}</div><div>${escapeHtml(e.content)}</div></div>`
+      ).join("");
+    }
+  }
+
+  if (view === "memory" && d) {
+    if (!d.memories.length) {
+      html = '<div class="obs-empty">还没有共同的回忆</div>';
+    } else {
+      html = d.memories.map((m) =>
+        `<div class="obs-memory"><span class="tag">${TYPE_LABEL[m.type] || m.type}</span><div>${escapeHtml(m.content)}</div></div>`
+      ).join("");
+    }
+  }
+
+  if (view === "schedule" && d) {
+    const s = d.schedule;
+    html += `<div class="obs-card"><h4>📅 她的日程</h4>`;
+    html += `<div class="obs-row"><span>当前</span><b>${s.current_activity || "—"}</b></div>`;
+    html += "</div>";
+    html += (s.today || []).map((slot) =>
+      `<div class="obs-row"><span>${slot.start} - ${slot.end}</span><b>${slot.name}</b></div>`
+    ).join("");
+  }
+
+  if (view === "settings") {
+    html = `<div class="obs-card"><h4>⚙️ 设置</h4></div>`;
+    html += `<div class="obs-card settings">`;
+    html += `<label>小七名字<input id="set-name" type="text" value="${escapeHtml(settings.name)}"></label>`;
+    html += `<label>用户称呼<input id="set-user-name" type="text" value="${escapeHtml(settings.user_name)}"></label>`;
+    html += `<label class="switch"><span>允许主动消息</span><input id="set-proactive" type="checkbox" ${settings.allow_proactive ? "checked" : ""}></label>`;
+    html += `<label class="switch"><span>夜间模式</span><input id="set-night" type="checkbox" ${settings.night_mode ? "checked" : ""}></label>`;
+    html += `<label class="switch"><span>音效</span><input id="set-sound" type="checkbox" ${settings.sound ? "checked" : ""}></label>`;
+    html += `<p class="settings-note">模拟速度：<b id="set-speed">-</b> 分钟/秒</p>`;
+    html += `<p class="settings-note voice-note">🎤 语音功能即将接入（WebRTC / VAD / Whisper / TTS）</p>`;
+    html += `</div>`;
+  }
+
+  observerContent.innerHTML = html;
+  bindSettings();
+}
+
+function bindSettings() {
+  const bind = (id, key, type) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener(type === "checkbox" ? "change" : "change", () => {
+      settings[key] = type === "checkbox" ? el.checked : el.value.trim() || settings[key];
+      saveSettings();
+      applySettings();
+    });
+  };
+  bind("set-name", "name", "text");
+  bind("set-user-name", "user_name", "text");
+  bind("set-proactive", "allow_proactive", "checkbox");
+  bind("set-night", "night_mode", "checkbox");
+  bind("set-sound", "sound", "checkbox");
 }
 
 async function loadSettingsBackend() {
   try {
     const res = await fetch("/api/settings");
     const d = await res.json();
-    setSpeed.textContent = d.simulation_minutes_per_real_second ?? "-";
+    const el = document.getElementById("set-speed");
+    if (el) el.textContent = d.simulation_minutes_per_real_second ?? "-";
   } catch { /* 忽略 */ }
 }
 
-/* ─────────── 状态轮询 ─────────── */
-
-async function loadStatus() {
-  try {
-    const res = await fetch("/api/status");
-    const data = await res.json();
-    applyWorldState(data.life_state);
-  } catch { /* 忽略 */ }
+function applySettings() {
+  bodyEl.classList.toggle("night-mode", settings.night_mode);
 }
 
-/* ─────────── 事件绑定 ─────────── */
+/* ─────────── 入口：极简 / 自动隐藏 ─────────── */
 
-chatBtn.addEventListener("click", () => {
-  chatDrawer.classList.toggle("hidden");
-  if (!chatDrawer.classList.contains("hidden")) { renderHistory(); chatInput.focus(); }
-});
-chatClose.addEventListener("click", () => chatDrawer.classList.add("hidden"));
-chatSend.addEventListener("click", submitChat);
-chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitChat(); } });
-
-relationBtn.addEventListener("click", () => { relationPanel.classList.toggle("hidden"); if (!relationPanel.classList.contains("hidden")) openRelation(); });
-relationClose.addEventListener("click", () => relationPanel.classList.add("hidden"));
-
-scheduleBtn.addEventListener("click", () => { schedulePanel.classList.toggle("hidden"); if (!schedulePanel.classList.contains("hidden")) openSchedule(); });
-scheduleClose.addEventListener("click", () => schedulePanel.classList.add("hidden"));
-
-settingsBtn.addEventListener("click", () => settingsPanel.classList.toggle("hidden"));
-settingsClose.addEventListener("click", () => settingsPanel.classList.add("hidden"));
-
-voiceBtn.addEventListener("click", () => showTip("🎤 语音功能即将接入"));
-
-hudToggle.addEventListener("click", () => {
-  const body = hudEl.querySelector(".hud-body");
-  body.style.display = body.style.display === "none" ? "block" : "none";
+function revealUi() {
+  bodyEl.classList.add("reveal-ui");
+  clearTimeout(revealUi._t);
+  revealUi._t = setTimeout(() => bodyEl.classList.remove("reveal-ui"), 2500);
+}
+document.addEventListener("mousemove", (e) => {
+  if (e.clientX > innerWidth - 60 || e.clientX < 60 || e.clientY > innerHeight - 60) revealUi();
 });
 
-["set-name", "set-user-name", "set-hud", "set-proactive", "set-night", "set-sound"].forEach((id) => {
-  const el = document.getElementById(id);
-  el.addEventListener("change", () => {
-    if (id === "set-name") settings.name = el.value;
-    if (id === "set-user-name") settings.user_name = el.value;
-    if (id === "set-hud") settings.show_hud = el.checked;
-    if (id === "set-proactive") settings.allow_proactive = el.checked;
-    if (id === "set-night") settings.night_mode = el.checked;
-    if (id === "set-sound") settings.sound = el.checked;
-    saveSettings();
-    applySettings();
+phoneEntry.addEventListener("click", () => {
+  phoneEl.classList.remove("hidden");
+  phoneEntry.querySelector(".entry-dot").classList.remove("unread");
+  renderHistory();
+  phoneInput.focus();
+});
+phoneClose.addEventListener("click", () => phoneEl.classList.add("hidden"));
+phoneEl.addEventListener("click", (e) => { if (e.target === phoneEl) phoneEl.classList.add("hidden"); });
+
+observerEntry.addEventListener("click", () => {
+  observerEl.classList.remove("hidden");
+  loadObserver();
+});
+observerClose.addEventListener("click", () => observerEl.classList.add("hidden"));
+observerEl.addEventListener("click", (e) => { if (e.target === observerEl) observerEl.classList.add("hidden"); });
+
+document.querySelectorAll(".observer-nav button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".observer-nav button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderObserverView(btn.dataset.view);
+    if (btn.dataset.view === "settings") loadSettingsBackend();
   });
 });
+
+/* 手机聊天发送 */
+function submitMessage() {
+  const text = phoneInput.value.trim();
+  if (!text) return;
+  appendChat("user", text, new Date().toISOString());
+  phoneInput.value = "";
+  sendMessage(text);
+}
+sendBtn.addEventListener("click", submitMessage);
+phoneInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitMessage(); } });
 
 /* ─────────── 启动 ─────────── */
 
 avatar.init(avatarMount);
 applySettings();
-
-xiaoqiSpeak("你来啦～欢迎回到我的房间。");
-
 renderHistory();
 loadStatus();
-loadSettingsBackend();
 
 setInterval(loadStatus, 5000);
 setInterval(pollProactive, 6000);

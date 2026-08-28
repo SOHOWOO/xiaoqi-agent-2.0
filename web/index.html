@@ -3,24 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>小七 · 虚拟卧室</title>
+  <title>小七</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body class="day">
 
-  <!-- ═══════════ 小七的虚拟卧室 ═══════════ -->
+  <!-- ═══════════ Living World · ZERO UI ═══════════
+       全屏纯净观察窗口：无文字 / 无 HUD / 无按钮 / 无交互物件。
+       只有：小七、房间、光影、天气、动作、生活痕迹。
+       房间物件纯视觉，不可点击。 -->
+
   <div id="room" class="room-scene">
     <div class="sky"></div>
     <div class="sun"></div>
     <div class="moon"></div>
 
-    <!-- 窗户（点击：时间/天气占位） -->
-    <div id="window" class="obj window">
+    <div class="window">
       <div class="window-frame">
         <div class="cityscape"></div>
         <div class="glass"></div>
       </div>
-      <span class="obj-label">窗外</span>
     </div>
 
     <div class="room-interior">
@@ -36,48 +38,39 @@
         </div>
       </div>
 
-      <!-- 物件：床 -->
-      <div id="bed" class="obj bed" data-target="bed">
+      <div class="bed">
         <div class="bed-frame">
           <div class="pillow"></div>
           <div class="blanket"></div>
         </div>
-        <span class="obj-label">床</span>
       </div>
 
-      <!-- 物件：书桌 -->
-      <div id="desk" class="obj desk" data-target="desk">
+      <div class="desk">
         <div class="desk-top"></div>
         <div class="desk-leg"></div>
         <div class="book-open"></div>
         <div class="lamp-mini"></div>
-        <span class="obj-label">书桌</span>
       </div>
 
-      <!-- 物件：沙发 -->
-      <div id="sofa" class="obj sofa" data-target="sofa">
+      <div class="sofa">
         <div class="sofa-arm a"></div>
         <div class="sofa-seat"></div>
         <div class="sofa-arm b"></div>
-        <span class="obj-label">沙发</span>
       </div>
 
-      <!-- 物件：台灯 -->
-      <div id="lamp" class="obj lamp" data-target="lamp">
+      <div class="lamp">
         <div class="lamp-stand"></div>
         <div class="lamp-shade"></div>
-        <span class="obj-label">台灯</span>
       </div>
 
-      <!-- 物件：植物 -->
-      <div id="plant" class="obj plant">
+      <div class="plant">
         <div class="pot"></div>
         <span class="leaf l1"></span>
         <span class="leaf l2"></span>
         <span class="leaf l3"></span>
       </div>
 
-      <!-- 小七（Avatar2D 挂载点） -->
+      <!-- 小七 Avatar 挂载点（Avatar2D） -->
       <div id="avatar-mount"></div>
 
       <div class="light-fx"></div>
@@ -85,76 +78,46 @@
     </div>
   </div>
 
-  <!-- 空房间提示 / 交互反馈 -->
-  <div id="interact-tip" class="interact-tip hidden"></div>
+  <!-- ═══════════ 极简入口（自动隐藏，不占视觉中心） ═══════════ -->
+  <button id="phone-entry" class="phone-entry" aria-label="小七手机" tabindex="-1">📱</button>
+  <button id="observer-entry" class="observer-entry" aria-label="心灵观察站" tabindex="-1">✦</button>
 
-  <!-- ═══════════ 轻量状态 HUD（可隐藏） ═══════════ -->
-  <div id="hud" class="hud hidden">
-    <div class="hud-toggle" id="hud-toggle">⋯</div>
-    <div class="hud-body">
-      <div class="hud-row"><span>💗 心情</span><b id="hud-emotion">-</b></div>
-      <div class="hud-row"><span>⚡ 精力</span><b id="hud-energy">-</b></div>
-      <div class="hud-row"><span>💤 疲劳</span><b id="hud-fatigue">-</b></div>
-      <div class="hud-row"><span>📅 活动</span><b id="hud-activity">-</b></div>
+  <!-- ═══════════ 小七手机（聊天） ═══════════ -->
+  <div id="phone" class="phone hidden">
+    <div class="phone-shell">
+      <div class="status-bar"></div>
+      <div class="chat-header">
+        <button id="phone-close" class="close-btn">‹</button>
+        <div class="chat-avatar">小</div>
+        <div class="chat-meta">
+          <strong>小七</strong>
+          <small id="phone-status">在线</small>
+        </div>
+      </div>
+      <div id="phone-messages" class="phone-messages"></div>
+      <div class="composer">
+        <button id="mic-btn" class="mic" title="语音 · 开发中" disabled>🎤</button>
+        <input id="phone-input" placeholder="发消息…" autocomplete="off">
+        <button id="send-btn" class="send">➤</button>
+      </div>
     </div>
   </div>
 
-  <!-- ═══════════ 底部操作栏 ═══════════ -->
-  <nav class="toolbar">
-    <button id="voice-btn" title="语音 · 开发中" disabled>🎤<span>语音</span></button>
-    <button id="chat-btn" title="对话">💬<span>对话</span></button>
-    <button id="relation-btn" title="关系">💗<span>关系</span></button>
-    <button id="schedule-btn" title="日程">📅<span>日程</span></button>
-    <button id="settings-btn" title="设置">⚙️<span>设置</span></button>
-  </nav>
-
-  <!-- ═══════════ 对话抽屉（气泡历史） ═══════════ -->
-  <div id="chat-drawer" class="chat-drawer hidden">
-    <div class="drawer-head">
-      <strong>和小七对话</strong>
-      <button id="chat-close" class="close-btn">×</button>
-    </div>
-    <div id="chat-history" class="chat-history"></div>
-    <div class="chat-composer">
-      <input id="chat-input" placeholder="发消息给小七…" autocomplete="off">
-      <button id="chat-send">➤</button>
-    </div>
-  </div>
-
-  <!-- ═══════════ 关系面板 ═══════════ -->
-  <div id="relation-panel" class="panel hidden">
-    <div class="drawer-head">
-      <strong>💗 与小七的关系</strong>
-      <button id="relation-close" class="close-btn">×</button>
-    </div>
-    <div id="relation-content" class="panel-content"></div>
-  </div>
-
-  <!-- ═══════════ 日程面板 ═══════════ -->
-  <div id="schedule-panel" class="panel hidden">
-    <div class="drawer-head">
-      <strong>📅 她的日程</strong>
-      <button id="schedule-close" class="close-btn">×</button>
-    </div>
-    <div id="schedule-content" class="panel-content"></div>
-  </div>
-
-  <!-- ═══════════ 设置面板 ═══════════ -->
-  <div id="settings-panel" class="panel hidden">
-    <div class="drawer-head">
-      <strong>⚙️ 设置</strong>
-      <button id="settings-close" class="close-btn">×</button>
-    </div>
-    <div class="panel-content settings">
-      <label>小七名字 <input id="set-name" value="小七"></label>
-      <label>用户称呼 <input id="set-user-name" placeholder="主人"></label>
-      <label class="switch"><span>显示状态 HUD</span><input id="set-hud" type="checkbox" checked></label>
-      <label class="switch"><span>允许主动消息</span><input id="set-proactive" type="checkbox" checked></label>
-      <label class="switch"><span>夜间模式</span><input id="set-night" type="checkbox"></label>
-      <label class="switch"><span>音效</span><input id="set-sound" type="checkbox"></label>
-      <p class="settings-note">模拟速度：<b id="set-speed">-</b> 分钟/秒</p>
-      <p class="settings-note voice-note">🎤 语音功能即将接入（WebRTC / VAD / Whisper / TTS）</p>
-    </div>
+  <!-- ═══════════ 心灵观察站（信息 / 设置） ═══════════ -->
+  <div id="observer" class="observer hidden">
+    <aside class="observer-panel">
+      <div class="observer-title">小七的心灵</div>
+      <nav class="observer-nav">
+        <button data-view="emotion" class="active">💗 情绪</button>
+        <button data-view="relation">❤️ 关系</button>
+        <button data-view="diary">📖 今日日记</button>
+        <button data-view="memory">🧠 我们的回忆</button>
+        <button data-view="schedule">📅 她的日程</button>
+        <button data-view="settings">⚙️ 设置</button>
+      </nav>
+      <div id="observer-content" class="observer-content"></div>
+      <button id="observer-close" class="observer-close">收起</button>
+    </aside>
   </div>
 
   <script type="module" src="/app.js"></script>

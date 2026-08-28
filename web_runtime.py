@@ -407,44 +407,6 @@ class WebRuntime:
                 ),
             }
 
-    # 房间物件交互 -> 行为建议（Web 层）。
-    # 未来接 LifeLoop 行为调度 / VRM moveTo 的挂载点。
-    ROOM_BEHAVIORS = {
-        ("move_to", "bed"): "resting",
-        ("move_to", "desk"): "reading",
-        ("move_to", "sofa"): "relaxing",
-        ("move_to", "window"): "thinking",
-        ("interact", "xiaoqi"): "talking",
-        ("toggle", "lamp"): "idle",
-    }
-
-    def handle_action(self, action: dict) -> dict:
-        """处理一次房间交互意图（不直接改写核心状态机）。"""
-
-        with self._lock:
-            name = action.get("action")
-            target = action.get("target")
-
-            behavior = self.ROOM_BEHAVIORS.get(
-                (name, target),
-                "idle",
-            )
-
-            return {
-                "accepted": True,
-                "behavior": behavior,
-                "target": target,
-                "simulated_time": (
-                    self.life_loop
-                    .current_time
-                    .isoformat()
-                ),
-                "hook": (
-                    "web-layer behavior; "
-                    "future: LifeLoop scheduler / VRM moveTo"
-                ),
-            }
-
     def _schedule_snapshot(self) -> dict:
         """返回当前作息信息。"""
 
