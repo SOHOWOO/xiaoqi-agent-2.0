@@ -13,16 +13,29 @@ from voice.profile import (
 from voice.status import build_voice_status
 
 
-def test_stt_engine_unavailable_when_no_whisper():
+def test_stt_engine_state_reflects_environment():
+    """STT 状态反映真实环境：装 faster-whisper 则可用，否则 unavailable。"""
+
     engine = STTEngine()
     status = engine.status()
 
     assert status.engine == "faster-whisper"
-    assert status.available is False
+
+    # available 必须与真实安装状态一致（不伪造）
+    import importlib.util
+
+    has_whisper = (
+        importlib.util.find_spec("faster_whisper") is not None
+    )
+    assert status.available is has_whisper
     assert status.detail
 
+    # 无论是否安装，转写都应有明确结果（安装成功则识别，否则 unavailable）
     text = engine.transcribe(b"\x00\x01\x00\x01")
-    assert "unavailable" in text or "error" in text
+    if has_whisper:
+        assert text  # 有模型但音频无效可能返回空或错误，不应崩溃
+    else:
+        assert "unavailable" in text or "error" in text
 
 
 def test_stt_engine_streaming_not_available():

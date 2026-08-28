@@ -1,2 +1,7 @@
 python-docx>=1.1.0
 pytest>=8.0.0
+
+# 语音（可选依赖）：
+# 安装 faster-whisper 后 voice_server.py 自动启用实时 STT
+# pip install faster-whisper
+# 离线模型：设 HF_ENDPOINT=https://hf-mirror.com 首次自动下载 base 模型

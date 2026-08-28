@@ -24,6 +24,7 @@ def _server(tmp_path, monkeypatch):
 
 def test_api_voice_status_endpoint(tmp_path, monkeypatch):
     import json
+    import importlib.util
 
     server, port = _server(tmp_path, monkeypatch)
 
@@ -33,16 +34,20 @@ def test_api_voice_status_endpoint(tmp_path, monkeypatch):
         ) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
-        # 真实状态：不写死
+        # 真实状态：不写死，与当前环境一致
         assert "stt" in data
         assert "tts" in data
         assert "voice_profile" in data
 
-        # 当前环境无 faster-whisper / cosyvoice -> 明确 unavailable
-        assert data["stt"]["available"] is False
+        has_whisper = (
+            importlib.util.find_spec("faster_whisper") is not None
+        )
         assert data["stt"]["engine"] == "faster-whisper"
-        assert data["tts"]["available"] is False
+        assert data["stt"]["available"] is has_whisper
+
+        # CosyVoice 未安装 -> 明确 unavailable
         assert data["tts"]["engine"] == "cosyvoice"
+        assert data["tts"]["available"] is False
         assert data["voice_profile"] == "xiaoqi"
     finally:
         server.shutdown()
