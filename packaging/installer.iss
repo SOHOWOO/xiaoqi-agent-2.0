@@ -22,7 +22,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; 注：本机 Inno Setup 6.7.3 的 Languages\ 目录无 ChineseSimplified.isl（官方默认不含中文）。
+; 故暂用 English 编译；如需中文界面，从 Inno Setup 官网下载 ChineseSimplified.isl 放入该目录后取消下一行注释。
+; Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
