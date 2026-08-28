@@ -10,7 +10,7 @@ from pathlib import Path
 from voice.clone import check_reference_audio
 
 
-def _make_wav(path: Path, *, rate=16000, channels=1, seconds=2):
+def _make_wav(path: Path, *, rate=24000, channels=1, seconds=3):
     path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(path), "wb") as w:
         w.setnchannels(channels)
@@ -36,15 +36,36 @@ def test_check_non_wav(tmp_path):
 
 def test_check_valid_wav(tmp_path):
     p = tmp_path / "reference.wav"
-    _make_wav(p, rate=16000, channels=1, seconds=2)
+    _make_wav(p, rate=24000, channels=1, seconds=3)
 
     result = check_reference_audio(p)
 
     assert result["valid"] is True
-    assert result["sample_rate"] == 16000
+    assert result["sample_rate"] == 24000
     assert result["channels"] == 1
-    assert result["duration_sec"] == 2.0
+    assert result["sample_width"] == 2
+    assert result["duration_sec"] == 3.0
     assert result["size_bytes"] > 0
+
+
+def test_check_below_24khz_rejected(tmp_path):
+    p = tmp_path / "low.wav"
+    _make_wav(p, rate=16000, channels=1, seconds=3)
+
+    result = check_reference_audio(p)
+
+    assert result["valid"] is False
+    assert "采样率" in result["issues"][0]
+
+
+def test_check_stereo_rejected(tmp_path):
+    p = tmp_path / "stereo.wav"
+    _make_wav(p, rate=24000, channels=2, seconds=3)
+
+    result = check_reference_audio(p)
+
+    assert result["valid"] is False
+    assert "单声道" in result["issues"][0]
 
 
 def test_check_broken_wav(tmp_path):

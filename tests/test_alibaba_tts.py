@@ -157,8 +157,10 @@ def test_tts_success_returns_audio(monkeypatch):
 
     assert audio == b"RIFF........WAVE"
     assert "generation" in sent["url"]
+    assert "dashscope" in sent["url"]
     assert sent["payload"]["input"]["text"] == "你好呀"
     assert sent["payload"]["input"]["voice"] == "my-voice-id"
+    assert sent["payload"]["input"]["language_type"] == "Chinese"
     assert sent["payload"]["model"] == "qwen3-tts-flash"
 
 
@@ -172,21 +174,20 @@ def test_tts_streaming_not_available():
 
 
 def test_clone_not_configured():
-    clone = AlibabaVoiceClone(api_key="", workspace_id="")
+    clone = AlibabaVoiceClone(api_key="")
     assert clone.configured is False
 
 
-def test_clone_configured_requires_key_and_workspace():
-    assert AlibabaVoiceClone(api_key="k", workspace_id="w").configured is True
-    assert AlibabaVoiceClone(api_key="", workspace_id="w").configured is False
-    assert AlibabaVoiceClone(api_key="k", workspace_id="").configured is False
+def test_clone_configured_requires_key():
+    assert AlibabaVoiceClone(api_key="k").configured is True
+    assert AlibabaVoiceClone(api_key="").configured is False
 
 
-def test_clone_missing_workspace():
-    clone = AlibabaVoiceClone(api_key="k", workspace_id="")
+def test_clone_missing_key():
+    clone = AlibabaVoiceClone(api_key="")
     with pytest.raises(AlibabaTTSError) as exc:
         clone._endpoint()
-    assert exc.value.kind == "NO_WORKSPACE_ID"
+    assert exc.value.kind == "NO_API_KEY"
 
 
 def test_clone_create_success(monkeypatch):
@@ -194,6 +195,7 @@ def test_clone_create_success(monkeypatch):
 
     def fake_post(url, key, payload, **kw):
         sent["payload"] = payload
+        sent["url"] = url
         return {"output": {"voice": "xiaoqiVoice"}}
 
     monkeypatch.setattr(
@@ -201,7 +203,7 @@ def test_clone_create_success(monkeypatch):
         fake_post,
     )
 
-    clone = AlibabaVoiceClone(api_key="k", workspace_id="ws-123")
+    clone = AlibabaVoiceClone(api_key="k")
 
     voice_id = clone.create_voice(
         audio_wav=b"\x00\x01WAVE",
@@ -212,6 +214,9 @@ def test_clone_create_success(monkeypatch):
     assert sent["payload"]["model"] == "qwen-voice-enrollment"
     assert sent["payload"]["input"]["action"] == "create"
     assert sent["payload"]["input"]["preferred_name"] == "xiaoqi"
+    # 使用 dashscope 域名，无需 workspace
+    assert "dashscope" in sent["url"]
+    assert "customization" in sent["url"]
 
 
 def test_clone_create_failure(monkeypatch):
@@ -223,7 +228,7 @@ def test_clone_create_failure(monkeypatch):
         fake_post,
     )
 
-    clone = AlibabaVoiceClone(api_key="k", workspace_id="ws-123")
+    clone = AlibabaVoiceClone(api_key="k")
 
     with pytest.raises(AlibabaTTSError) as exc:
         clone.create_voice(audio_wav=b"x", preferred_name="xiaoqi")

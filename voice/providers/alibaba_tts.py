@@ -32,12 +32,9 @@ _REGION_HOSTS = {
 
 _TTS_PATH = "/api/v1/services/aigc/multimodal-generation/generation"
 
-_REGION_MAA = {
-    "singapore": "ap-southeast-1",
-    "beijing": "cn-beijing",
-    "cn-beijing": "cn-beijing",
-    "ap-southeast-1": "ap-southeast-1",
-}
+# Qwen-TTS 声音复刻官方 endpoint（与 TTS 同域名，不需要 Workspace ID）。
+# 注：Qwen-Audio-TTS/CosyVoice 声音复刻才用 {WorkspaceId}.maas.aliyuncs.com。
+_CLONE_PATH = "/api/v1/services/audio/tts/customization"
 
 
 class AlibabaTTSError(Exception):
@@ -54,12 +51,10 @@ def _base_url(region: str) -> str:
     return f"https://{host}"
 
 
-def _clone_base_url(workspace_id: str, region: str) -> str:
-    maa_region = _REGION_MAA.get(region, "ap-southeast-1")
-    return (
-        f"https://{workspace_id}.{maa_region}.maas.aliyuncs.com/"
-        "api/v1/services/audio/tts/customization"
-    )
+def _clone_base_url(region: str) -> str:
+    """Qwen-TTS 声音复刻 endpoint（dashscope 域名，无需 Workspace ID）。"""
+
+    return _base_url(region) + _CLONE_PATH
 
 
 def _read_api_key() -> Optional[str]:
@@ -156,7 +151,7 @@ class AlibabaTTSConfig:
     model: str = "qwen3-tts-flash"
     voice: str = ""
     region: str = "singapore"
-    language: str = "zh"
+    language: str = "Chinese"
     timeout: float = 30.0
     extra: dict = field(default_factory=dict)
 
@@ -177,7 +172,7 @@ def load_tts_config() -> AlibabaTTSConfig:
         ),
         language=os.getenv(
             "XIAOQI_ALIBABA_LANGUAGE",
-            "zh",
+            "Chinese",
         ),
         timeout=float(
             os.getenv("XIAOQI_ALIBABA_TIMEOUT", "30")
@@ -308,15 +303,10 @@ class AlibabaVoiceClone:
         self,
         *,
         api_key: str | None = None,
-        workspace_id: str = "",
         region: str = "singapore",
         timeout: float = 60.0,
     ) -> None:
         self.api_key = api_key or _read_api_key() or ""
-        self.workspace_id = (
-            workspace_id
-            or os.getenv("XIAOQI_ALIBABA_WORKSPACE_ID", "")
-        )
         self.region = region or os.getenv(
             "XIAOQI_ALIBABA_REGION",
             "singapore",
@@ -325,36 +315,39 @@ class AlibabaVoiceClone:
 
     @property
     def configured(self) -> bool:
-        """API Key + Workspace ID 都配置才视为已配置。"""
+        """API Key 配置即可（Qwen-TTS 声音复刻用 dashscope 域名，无需 Workspace ID）。"""
 
-        return bool(self.api_key and self.workspace_id)
+        return bool(self.api_key)
 
     def status(self) -> dict:
         return {
             "provider": self.provider,
             "configured": self.configured,
             "has_api_key": bool(self.api_key),
-            "has_workspace_id": bool(self.workspace_id),
         }
 
     def _endpoint(self) -> str:
-        if not self.workspace_id:
+        if not self.api_key:
             raise AlibabaTTSError(
-                "NO_WORKSPACE_ID",
-                "XIAOQI_ALIBABA_WORKSPACE_ID 未配置",
+                "NO_API_KEY",
+                "XIAOQI_ALIBABA_API_KEY 未配置",
             )
-        return _clone_base_url(self.workspace_id, self.region)
+        return _clone_base_url(self.region)
 
     def create_voice(
         self,
         *,
         audio_wav: bytes,
         preferred_name: str,
-        target_model: str = "qwen3-tts-vc-realtime-2026-01-15",
+        target_model: str = "qwen3-tts-vc-2026-01-22",
         text: str = "",
         language: str = "zh",
     ) -> str:
-        """用参考音频创建 Voice ID（显式调用，绝不自动上传）。"""
+        """用参考音频创建 Voice ID（显式调用，绝不自动上传）。
+
+        官方：Qwen-TTS 声音复刻 target_model 用 qwen3-tts-vc-* 系列，
+        创建后返回 output.voice（音色 ID），与合成时 voice 参数一致。
+        """
 
         if not self.api_key:
             raise AlibabaTTSError(

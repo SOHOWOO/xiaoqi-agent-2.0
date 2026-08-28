@@ -46,14 +46,13 @@ def _tts_status() -> dict:
 
 
 def _voice_clone_status() -> dict:
-    """声音克隆状态：只有 API Key + Workspace 都配置才 configured。"""
+    """声音克隆状态：API Key 配置即视为可配置（Qwen-TTS 用 dashscope 域名，无需 Workspace ID）。"""
 
     clone = AlibabaVoiceClone()
     return {
         "provider": "alibaba",
         "configured": clone.configured,
         "has_api_key": clone.api_key != "",
-        "has_workspace_id": clone.workspace_id != "",
     }
 
 

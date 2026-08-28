@@ -64,14 +64,20 @@ def check_reference_audio(
     size = ref.stat().st_size
 
     issues = []
-    if rate <= 0:
-        issues.append("采样率无效")
-    if channels not in (1, 2):
-        issues.append("声道数异常")
+    if rate < 24000:
+        issues.append("采样率需 ≥ 24 kHz")
+    if channels != 1:
+        issues.append("需单声道（Qwen-TTS 复刻要求单声道）")
+    if sample_width != 2:
+        issues.append("需 16bit（sample_width=2）")
     if duration <= 0:
         issues.append("音频时长为 0")
+    if duration > 60:
+        issues.append("时长需 ≤ 60 秒")
     if size <= 0:
         issues.append("文件为空")
+    if size > 10 * 1024 * 1024:
+        issues.append("文件大小需 ≤ 10 MB")
 
     return {
         "valid": not issues,
@@ -114,8 +120,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if not clone.configured:
             print(
-                "❌ 未配置：需设置 XIAOQI_ALIBABA_API_KEY 和 "
-                "XIAOQI_ALIBABA_WORKSPACE_ID"
+                "❌ 未配置：需设置 XIAOQI_ALIBABA_API_KEY"
             )
             return 1
 
