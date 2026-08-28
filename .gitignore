@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .env
+.env.local
 
 # Private memory data
 memories/
@@ -9,3 +10,10 @@ memories/
 
 # Life Lab experiment logs
 logs/
+
+# Voice: reference audio（真人声音素材不入库）
+voice/profiles/*/reference.wav
+voice/profiles/*/reference.mp3
+
+# TTS test output
+tmp/

@@ -20,18 +20,20 @@ DEFAULT_PROFILE = "xiaoqi"
 @dataclass(frozen=True)
 class VoiceProfile:
     name: str
-    engine: str = "cosyvoice"
+    provider: str = "alibaba"
+    voice_id: str = ""
     reference_audio: str = ""
     language: str = "zh"
     speed: float = 1.0
-    pitch: float = 1.0
+    pitch: float = 0.0
     emotion: str = "neutral"
     extra: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
-            "engine": self.engine,
+            "provider": self.provider,
+            "voice_id": self.voice_id,
             "reference_audio": self.reference_audio,
             "language": self.language,
             "speed": self.speed,
@@ -44,11 +46,12 @@ class VoiceProfile:
     def from_dict(cls, data: dict) -> "VoiceProfile":
         return cls(
             name=str(data.get("name", DEFAULT_PROFILE)),
-            engine=str(data.get("engine", "cosyvoice")),
+            provider=str(data.get("provider", "alibaba")),
+            voice_id=str(data.get("voice_id", "")),
             reference_audio=str(data.get("reference_audio", "")),
             language=str(data.get("language", "zh")),
             speed=float(data.get("speed", 1.0)),
-            pitch=float(data.get("pitch", 1.0)),
+            pitch=float(data.get("pitch", 0.0)),
             emotion=str(data.get("emotion", "neutral")),
             extra={
                 k: v
@@ -56,7 +59,8 @@ class VoiceProfile:
                 if k
                 not in {
                     "name",
-                    "engine",
+                    "provider",
+                    "voice_id",
                     "reference_audio",
                     "language",
                     "speed",

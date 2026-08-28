@@ -61,6 +61,18 @@ def test_voice_server_websocket_roundtrip():
 
     import voice_server
 
+    # 注入 stub STT（不触发真实 whisper 惰性加载），聚焦 WebSocket 协议
+    class _StubSTT:
+        engine_name = "stub"
+
+        def transcribe(self, audio_data):
+            return "小七测试"
+
+        def streaming_available(self):
+            return False
+
+    voice_server.service.stt = _StubSTT()
+
     # 在独立线程/事件循环启动 server
     results = {}
 

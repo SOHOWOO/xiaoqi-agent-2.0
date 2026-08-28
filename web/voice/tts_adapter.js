@@ -73,11 +73,11 @@ class BrowserTTS {
   }
 }
 
-/* 服务器 TTS：voice_server.py /api/tts（CosyVoice 生成 wav）
-   音频播放时用真实 Analyser 振幅驱动嘴型 */
+/* 服务器 TTS：主 web_server /api/tts（后端代理 Alibaba Qwen3-TTS，
+   API Key 绝不到浏览器）音频播放时用真实 Analyser 振幅驱动嘴型 */
 class ServerTTS {
   constructor(url) {
-    this._url = url || "http://127.0.0.1:8779/tts";
+    this._url = url || "/api/tts";
     this._audio = null;
     this._source = null;
     this._onStart = null;
@@ -158,14 +158,16 @@ class ServerTTS {
   onEnd(cb) { this._onEnd = cb; }
 }
 
-/* 根据后端 /api/voice/status 选择合适的 TTS Adapter */
+/* 根据后端 /api/voice/status 选择合适的 TTS Adapter
+   优先级：Alibaba Remote TTS -> Browser SpeechSynthesis -> null
+   浏览器绝不知道 API Key；Alibaba 由后端 voice_server /tts 代理。 */
 async function createTTSAdapter() {
   try {
     const res = await fetch("/api/voice/status");
     const status = await res.json();
 
-    // 服务器 CosyVoice 可用 -> server TTS
-    if (status.tts && status.tts.available) {
+    // 服务器 Alibaba 可用 -> 通过后端 /tts 代理（浏览器不接触 Key）
+    if (status.tts && status.tts.provider === "alibaba" && status.tts.available) {
       return new ServerTTS();
     }
   } catch { /* 忽略 */ }

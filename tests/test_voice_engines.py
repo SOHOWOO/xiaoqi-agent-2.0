@@ -70,7 +70,8 @@ def test_load_default_profile():
     assert profile.name == "xiaoqi"
     assert profile.language == "zh"
     assert profile.speed == 1.0
-    assert profile.pitch == 1.0
+    assert profile.pitch == 0.0
+    assert profile.provider == "alibaba"
 
 
 def test_profile_to_dict_and_has_reference():
@@ -82,6 +83,7 @@ def test_profile_to_dict_and_has_reference():
     data = profile.to_dict()
     assert data["name"] == "xiaoqi"
     assert data["has_reference"] is True
+    assert data["provider"] == "alibaba"
 
     no_ref = VoiceProfile(name="xiaoqi")
     assert no_ref.to_dict()["has_reference"] is False
@@ -91,5 +93,5 @@ def test_profile_from_dict_defaults():
     profile = VoiceProfile.from_dict({"name": "test"})
 
     assert profile.name == "test"
-    assert profile.engine == "cosyvoice"
+    assert profile.provider == "alibaba"
     assert profile.language == "zh"

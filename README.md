@@ -51,41 +51,64 @@
 ```
 
 - **STT**：faster-whisper（`voice_server.py`，可选依赖，未安装返回 clear `unavailable`） / 浏览器 Web Speech API（fallback）
-- **TTS**：CosyVoice（`voice_server.py` HTTP `/api/tts`，可选依赖） / 浏览器 SpeechSynthesis（fallback，明确标注 `kind: "browser"`）
-- **VoiceProfile**：`voice/profiles/xiaoqi/profile.json`（引擎/语速/音调/情绪/参考音频配置），替换 reference.wav 即可换声音，真人素材不入库
-- **状态**：`GET /api/voice/status` 返回真实语音状态（不写死）
+- **TTS**：**阿里云 Model Studio Qwen3-TTS**（云端，`voice/providers/alibaba_tts.py`）/ 浏览器 SpeechSynthesis（fallback）
+- **VoiceProfile**：`voice/profiles/xiaoqi/profile.json`（provider/voice_id/语速/音调/情绪），voice_id 从环境变量读取，真人素材不入库
+- **状态**：`GET /api/voice/status` 返回真实状态（API Key + Voice ID 都配置才 available，不写死）
 - **语音与文字共用 Core**（`/api/chat`），记忆/情绪/关系一致
 - 语音不可用时自动降级文字聊天，永不崩溃
 
-### 查看语音状态
+### 阿里云 Qwen3-TTS（云端语音）
+
+**无需本地模型/GPU**，只需阿里云 Model Studio API Key。
 
 ```bash
+# 1. 配置（复制 .env.example 为 .env）
+XIAOQI_TTS_PROVIDER=alibaba
+XIAOQI_ALIBABA_API_KEY=sk-xxx        # 只由后端读取，绝不进 JS/Git
+XIAOQI_ALIBABA_MODEL=qwen3-tts-flash
+XIAOQI_ALIBABA_VOICE_ID=xxx          # 见下方"声音克隆"
+XIAOQI_ALIBABA_REGION=singapore      # 默认新加坡
+XIAOQI_ALIBABA_WORKSPACE_ID=xxx      # 创建声音克隆时用
+
+# 2. 查看语音状态
 curl http://127.0.0.1:8000/api/voice/status
-# 预期：stt.available=false, tts.available=false, voice_profile=xiaoqi
+# 预期：stt.available=?, tts.available=true(配置齐全后), voice_clone.configured=?
+
+# 3. 真实 TTS 测试（配置齐全后）
+python -m voice.test_tts "小七今天下班回来啦。"
+# 输出保存到 tmp/voice_test/test_tts.wav
 ```
 
-### 安装 faster-whisper（STT 本地）
+### 声音克隆（创建小七的 Voice ID）
+
+```bash
+# 1. 把参考音频（10s 内清晰人声）放入：
+#    voice/profiles/xiaoqi/reference.wav  （已 gitignore）
+
+# 2. 检查音频格式（不自动上传）
+python -m voice.clone check
+
+# 3. 显式创建 Voice ID（此刻才上传音频到阿里云）
+python -m voice.clone create xiaoqi
+# 输出 Voice ID → 填入 .env 的 XIAOQI_ALIBABA_VOICE_ID
+
+# 4. 查询音色
+python -m voice.clone list
+```
+
+### 安装 faster-whisper（本地 STT）
 
 ```bash
 pip install faster-whisper
-python voice_server.py        # 启动 WebSocket STT: ws://127.0.0.1:8769
+export HF_ENDPOINT=https://hf-mirror.com   # 国内下载模型
+python voice_server.py                     # ws://127.0.0.1:8769
 ```
 
-### 配置 CosyVoice（TTS 本地服务器）
+### 安全
 
-```bash
-pip install cosyvoice
-export XIAOQI_COSYVOICE_MODEL_DIR=/path/to/cosyvoice/model
-voice_server.py               # 自动启用 HTTP /api/tts
-```
-
-### 创建声音克隆（VoiceProfile）
-
-```bash
-# 1. 将 reference.wav 放入 voice/profiles/xiaoqi/
-# 2. 确认 profile.json 中 reference_audio 指向正确
-# 3. 重启服务，TTS 自动使用克隆声音
-```
+- API Key 只由后端读取（`XIAOQI_ALIBABA_API_KEY` 环境变量），浏览器经 `/api/tts` 后端代理，绝不下发 Key
+- `.env`、`voice/profiles/*/reference.wav`、`tmp/` 均在 `.gitignore`
+- 未配置时 `/api/voice/status` 明确显示 `unavailable / configured=false`，不伪造
 
 ## 启动
 

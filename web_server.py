@@ -12,6 +12,11 @@ from urllib.parse import urlparse
 
 from web_runtime import WebRuntime
 from vrm_validator import check_available_model
+from voice.providers.alibaba_tts import (
+    AlibabaTTSError,
+    AlibabaTTS,
+    load_tts_config,
+)
 from voice.status import build_voice_status
 
 
@@ -215,57 +220,54 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urlparse(self.path).path
 
-        if path != "/api/chat":
-            self.send_error(
-                HTTPStatus.NOT_FOUND,
-                "Not found",
-            )
+        if path == "/api/chat":
+            self._handle_chat()
             return
 
+        if path == "/api/tts":
+            self._handle_tts()
+            return
+
+        self.send_error(
+            HTTPStatus.NOT_FOUND,
+            "Not found",
+        )
+
+    def _read_body(self) -> dict | None:
+        """读取 POST body 并解析 JSON。"""
+
         try:
-            content_length = int(
-                self.headers.get(
-                    "Content-Length",
-                    "0",
-                )
+            length = int(
+                self.headers.get("Content-Length", "0") or 0
             )
         except ValueError:
-            content_length = 0
+            length = 0
 
-        if content_length <= 0:
+        if length <= 0:
             self._send_json(
-                {
-                    "error": (
-                        "request body is required"
-                    )
-                },
+                {"error": "request body is required"},
                 HTTPStatus.BAD_REQUEST,
             )
-            return
+            return None
 
         try:
-            raw = self.rfile.read(
-                content_length
-            )
-            payload = json.loads(
-                raw.decode("utf-8")
-            )
-        except (
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ):
+            raw = self.rfile.read(length)
+            return json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
             self._send_json(
                 {"error": "invalid JSON"},
                 HTTPStatus.BAD_REQUEST,
             )
+            return None
+
+    def _handle_chat(self) -> None:
+        payload = self._read_body()
+        if payload is None:
             return
 
         message = payload.get("message")
 
-        if (
-            not isinstance(message, str)
-            or not message.strip()
-        ):
+        if not isinstance(message, str) or not message.strip():
             self._send_json(
                 {"error": "message cannot be empty"},
                 HTTPStatus.BAD_REQUEST,
@@ -273,21 +275,14 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            result = RUNTIME.handle_message(
-                message
-            )
-
+            result = RUNTIME.handle_message(message)
             reply = RUNTIME.respond(result)
 
             self._send_json(
                 {
                     "reply": reply,
-                    "life_state": (
-                        RUNTIME.life_state_dict()
-                    ),
-                    "memory_counts": (
-                        RUNTIME.memory_counts()
-                    ),
+                    "life_state": RUNTIME.life_state_dict(),
+                    "memory_counts": RUNTIME.memory_counts(),
                 }
             )
         except Exception as exc:
@@ -295,6 +290,42 @@ class WebHandler(BaseHTTPRequestHandler):
                 {"error": str(exc)},
                 HTTPStatus.INTERNAL_SERVER_ERROR,
             )
+
+    def _handle_tts(self) -> None:
+        payload = self._read_body()
+        if payload is None:
+            return
+
+        text = (payload.get("text") or "").strip()
+
+        if not text:
+            self._send_json(
+                {"error": "text required"},
+                HTTPStatus.BAD_REQUEST,
+            )
+            return
+
+        config = load_tts_config()
+        tts = AlibabaTTS(config)
+
+        if not tts.available:
+            self._send_json(
+                {"error": "Alibaba TTS unavailable"},
+                HTTPStatus.SERVICE_UNAVAILABLE,
+            )
+            return
+
+        try:
+            audio = tts.synthesize(text)
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Length", str(len(audio)))
+            self.end_headers()
+            self.wfile.write(audio)
+        except AlibabaTTSError as exc:
+            self._send_json({"error": str(exc)}, 502)
+        except Exception as exc:
+            self._send_json({"error": str(exc)}, 500)
 
     def log_message(
         self,

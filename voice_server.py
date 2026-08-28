@@ -23,6 +23,11 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from voice.engines import CosyVoiceTTS, STTEngine
+from voice.providers.alibaba_tts import (
+    AlibabaTTSError,
+    AlibabaTTS,
+    load_tts_config,
+)
 from voice.status import build_voice_status
 
 
@@ -30,6 +35,13 @@ class STTService:
     def __init__(self) -> None:
         self.stt = STTEngine()
         self.tts = CosyVoiceTTS()
+        self.alibaba = AlibabaTTS(load_tts_config())
+
+    @property
+    def tts_available(self) -> bool:
+        """优先 Alibaba（云端），其次本地 CosyVoice。"""
+
+        return self.alibaba.available or self.tts.available
 
 
 service = STTService()
@@ -205,13 +217,19 @@ class VoiceHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "text required"}, 400)
             return
 
-        if not service.tts.available:
-            self._send_json({"error": "CosyVoice unavailable"}, 503)
+        if not service.tts_available:
+            self._send_json({"error": "TTS unavailable"}, 503)
             return
 
         try:
-            audio = service.tts.synthesize(text)
+            # 优先 Alibaba 云端 TTS，其次本地 CosyVoice
+            if service.alibaba.available:
+                audio = service.alibaba.synthesize(text)
+            else:
+                audio = service.tts.synthesize(text)
             self._send_audio(audio, "audio/wav")
+        except AlibabaTTSError as exc:
+            self._send_json({"error": str(exc)}, 502)
         except Exception as exc:
             self._send_json({"error": str(exc)}, 500)
 

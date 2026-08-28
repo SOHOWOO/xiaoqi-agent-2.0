@@ -52,26 +52,41 @@ class EngineStatus:
 
 
 class STTEngine:
-    """语音识别引擎（faster-whisper 或 unavailable）。"""
+    """语音识别引擎（faster-whisper 或 unavailable）。
+
+    模型惰性加载：仅在 transcribe 时初始化，避免 status/init 卡顿。
+    """
 
     engine_name = "faster-whisper"
 
     def __init__(self) -> None:
         self._model = None
-        self._error = ""
+        self._load_error = ""
 
-        if _HAS_WHISPER:
-            try:
-                self._model = faster_whisper.WhisperModel(
-                    _WHISPER_MODEL_SIZE,
-                    device="cpu",
-                    compute_type="int8",
-                )
-            except Exception as exc:
-                self._error = str(exc)
+    def _ensure_model(self):
+        """首次使用时加载模型（含 HF 下载）。"""
+
+        if self._model is not None or self._load_error:
+            return
+
+        if not _HAS_WHISPER:
+            self._load_error = "faster-whisper 未安装"
+            return
+
+        try:
+            self._model = faster_whisper.WhisperModel(
+                _WHISPER_MODEL_SIZE,
+                device="cpu",
+                compute_type="int8",
+            )
+        except Exception as exc:
+            self._load_error = str(exc)
 
     @property
     def available(self) -> bool:
+        if _HAS_WHISPER and self._model is None and not self._load_error:
+            # 不强制触发下载；available 表示"库可用"而非"模型已载入"
+            return True
         return self._model is not None
 
     def status(self) -> EngineStatus:
@@ -81,20 +96,26 @@ class STTEngine:
                 available=False,
                 detail="faster-whisper 未安装",
             )
-        if self._model is None:
+        if self._load_error:
             return EngineStatus(
                 engine=self.engine_name,
                 available=False,
-                detail=f"加载失败: {self._error}",
+                detail=f"加载失败: {self._load_error}",
             )
         return EngineStatus(
             engine=self.engine_name,
             available=True,
-            detail=_WHISPER_MODEL_SIZE,
+            detail=(
+                f"{_WHISPER_MODEL_SIZE}"
+                if self._model is not None
+                else f"{_WHISPER_MODEL_SIZE} (库已装，首次使用自动加载)"
+            ),
         )
 
     def transcribe(self, audio_data: bytes) -> str:
         """音频字节 -> 文本（中文普通话）。"""
+
+        self._ensure_model()
 
         if self._model is None:
             return "[STT unavailable: install faster-whisper]"

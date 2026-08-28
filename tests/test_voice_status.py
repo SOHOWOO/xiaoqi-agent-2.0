@@ -26,6 +26,10 @@ def test_api_voice_status_endpoint(tmp_path, monkeypatch):
     import json
     import importlib.util
 
+    monkeypatch.delenv("XIAOQI_ALIBABA_API_KEY", raising=False)
+    monkeypatch.delenv("XIAOQI_ALIBABA_VOICE_ID", raising=False)
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+
     server, port = _server(tmp_path, monkeypatch)
 
     try:
@@ -42,12 +46,17 @@ def test_api_voice_status_endpoint(tmp_path, monkeypatch):
         has_whisper = (
             importlib.util.find_spec("faster_whisper") is not None
         )
-        assert data["stt"]["engine"] == "faster-whisper"
+        assert data["stt"]["provider"] == "faster-whisper"
         assert data["stt"]["available"] is has_whisper
 
-        # CosyVoice 未安装 -> 明确 unavailable
-        assert data["tts"]["engine"] == "cosyvoice"
+        # provider=alibaba，未配 key -> 明确 unavailable
+        assert data["tts"]["provider"] == "alibaba"
         assert data["tts"]["available"] is False
+        assert data["tts"]["has_api_key"] is False
+
+        # voice_clone 未配置
+        assert data["voice_clone"]["configured"] is False
+
         assert data["voice_profile"] == "xiaoqi"
     finally:
         server.shutdown()
