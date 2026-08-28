@@ -11,29 +11,40 @@
 | 界面 | 说明 |
 |------|------|
 | 🏠 **虚拟卧室** | 全屏沉浸房间：墙壁/地板/窗户/床/书桌/沙发/台灯/植物/书架。**时间真实改变房间**（昼夜光线、台灯自动开关），小七由 LifeLoop 驱动生活（起床→上班→回家→做饭→沙发→睡觉） |
-| 🧍 **小七角色** | Avatar Adapter 架构（`web/avatar/`），2D 实现驱动表情/动作/位置（happy/sad/sleeping/reading/thinking/talking…）；未来无缝切 VRM/Unity |
-| 💬 **房间内对话** | 小七说话以**气泡出现在她身边**；点 💬 打开对话抽屉，真实历史 + 已读 |
-| ✨ **主动行为** | 小七主动找你：停止动作 → 转向 → 气泡说话（接 `/api/proactive`） |
-| 🖱️ **物件交互** | 点床/书桌/沙发→小七过去休息/阅读/放松；点台灯→开关灯；点小七→互动；点空白→她走回房间中央 |
-| 💗📅 **关系 / 日程** | 底部栏打开，接真实 Relationship / ScheduleEngine 数据 |
-| ⚙️ **设置** | 名字/称呼/HUD 显隐/主动消息/夜间模式/音效（localStorage + 后端 `/api/settings`） |
-| 🎤 **语音** | 底部占位（开发中，不伪造；预留 WebRTC/VAD/Whisper/TTS） |
+| 🧍 **3D Avatar** | **Three.js 真实 3D 渲染**（`avatar_three.js`）：程序化 3D 小七 + 表情/嘴型/lookAt/呼吸/眨眼/移动。有 VRM 模型则走 `avatar_vrm.js`（`web/assets/avatar/xiaoqi.vrm`）。WebGL 不可用 → 回退 CSS 2D。统一 `AvatarAdapter` 接口 |
+| 🎙️ **实时语音** | 手机界面 🎤 按住说话：麦克风 → STT → 同一 `/api/chat`/Core → TTS → 播放 + **Avatar 嘴型同步**。语音与文字共用 Core（记忆/情绪/关系一致）。STT：浏览器 Web Speech（默认）/ `voice_server.py` faster-whisper（可选）；TTS：浏览器 SpeechSynthesis（开发 fallback，明确区分，未来 GPT-SoVITS/CosyVoice/XTTS） |
+| 📱 **小七手机** | 右下角低调入口 → 拟真微信式聊天（气泡/时间/已读/主动消息未读红点/语音按钮） |
+| 🧠 **心灵观察站** | 左边缘入口 → 情绪/神经化学/关系/日记/回忆/日程/设置（真实数据） |
+| ✨ **主动行为** | 小七主动找你 → 手机收到消息（未读红点），不进房间气泡 |
 
-核心原则：**Avatar（房间表现）不是大脑，只表达不解释**。状态通过行为表现（开心动作轻快、孤独发呆），数字只在 HUD/面板可见。
+核心原则：**Avatar（房间表现）不是大脑，只表达不解释**；房间 ZERO UI 不可互动；聊天只在手机；信息只在 Observer。3D/语音不可用时**优雅降级**，App 永不白屏。
 
 ## 架构
 
 ```
-用户 → Web UI(房间+Avatar) → Web Server(/api/*) → WebRuntime → xiaoqi-bus → 小七核心
-                                                    ├── LifeLoop
-                                                    ├── Memory 2.0
-                                                    ├── Emotion / Neurochemical
-                                                    ├── Relationship / Motivation
-                                                    ├── Diary / Schedule
-                                                    └── Proactive
-                                        ↓ AvatarEvent (WebSocket, 可选)
-                              Soul-of-Waifu / Live2D / VRM
+用户 → Web UI(房间+3D Avatar+语音) → Web Server(/api/*) → WebRuntime → xiaoqi-bus → 小七核心
+                                                     ├── LifeLoop
+                                                     ├── Memory 2.0
+                                                     ├── Emotion / Neurochemical
+                                                     ├── Relationship / Motivation
+                                                     ├── Diary / Schedule
+                                                     └── Proactive
+  语音：麦克风 → STT(voice_server/浏览器) → /api/chat → TTS → Avatar 嘴型
+  3D：Three.js(avatar_three) ← VRM(avatar_vrm) ← 2D fallback(avatar_2d)
 ```
+
+## 启动
+
+```bash
+pip install -r requirements.txt
+python web_server.py          # Web: http://127.0.0.1:8000
+python voice_server.py        # 语音服务(可选, faster-whisper): ws://127.0.0.1:8769
+```
+
+- 3D：打开页面即渲染（Three.js 已 vendor 到 `web/vendor/`，离线可用）
+- 语音：浏览器内点手机 🎤 按住说话（默认浏览器 STT+TTS，零依赖）
+- 想用本地 faster-whisper：`pip install faster-whisper` 后启动 `voice_server.py`，并在 `.env` 设 `STT_PROVIDER=faster-whisper`
+- VRM 模型：把合法授权的 `xiaoqi.vrm` 放入 `web/assets/avatar/`（见其 README）
 
 ## API
 
@@ -41,12 +52,10 @@
 |------|------|
 | `GET /api/status` | 生活状态 + 记忆计数 |
 | `GET /api/observer` | 综合：情绪/神经化学/关系/日记/回忆/日程 |
-| `GET /api/schedule` | 真实日程 |
-| `GET /api/memory` | 真实记忆 |
-| `GET /api/settings` | 后端设置 |
+| `GET /api/schedule` / `/api/memory` / `/api/settings` | 真实日程/记忆/设置 |
 | `GET /api/proactive` | 主动消息 |
-| `POST /api/chat` | 对话 |
-| `POST /api/action` | 房间交互 → 行为建议（Web 层，VRM/LifeLoop 未来挂载点） |
+| `POST /api/chat` | 对话（文字与语音共用） |
+| `voice_server.py` | WebSocket：音频 → STT → 文本（faster-whisper 可选） |
 
 ## 架构
 
@@ -62,19 +71,10 @@
                               Soul-of-Waifu / Live2D / VRM
 ```
 
-## 启动
-
-```bash
-pip install -r requirements.txt
-python web_server.py        # 打开 http://127.0.0.1:8000
-```
-
-环境变量：`XIAOQI_WEB_PORT`(8000)、`XIAOQI_SIM_MINUTES_PER_REAL_SECOND`(60)、`XIAOQI_LLM_API_KEY`。
-
 ## 测试
 
 ```bash
-python -m pytest            # 292 passed
+python -m pytest            # 302 passed
 python -m life_lab.runner   # Life Lab 离线生命实验（001-004, 008-010）
 ```
 

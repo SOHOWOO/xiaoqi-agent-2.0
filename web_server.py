@@ -105,10 +105,24 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
-        if path.startswith("/avatar/"):
+        if path.startswith("/avatar/") or path.startswith("/voice/"):
             self._send_file(
                 WEB_DIR / path.lstrip("/"),
                 "application/javascript; charset=utf-8",
+            )
+            return
+
+        if path.startswith("/vendor/"):
+            self._send_file(
+                WEB_DIR / path.lstrip("/"),
+                "application/javascript; charset=utf-8",
+            )
+            return
+
+        if path.startswith("/assets/"):
+            self._send_file(
+                WEB_DIR / path.lstrip("/"),
+                "application/octet-stream",
             )
             return
 

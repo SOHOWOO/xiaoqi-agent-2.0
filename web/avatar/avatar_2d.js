@@ -1,9 +1,7 @@
 /* ═══════════════════════════════════════════════════
    小七 · 2D Avatar（CSS 角色实现）
-   第一版用 CSS 人物占位，未来可切换 avatar_vrm.js
+   3D 不可用时的 fallback；支持嘴型 / 表情 / 位置
    ═══════════════════════════════════════════════════ */
-
-import AvatarAdapter from "./avatar_adapter.js";
 
 const STATE_CLASS = {
   idle: "idle",
@@ -19,6 +17,7 @@ const STATE_CLASS = {
   tired: "slow",
   hungry: "slow",
   proactive: "onphone",
+  onphone: "onphone",
 };
 
 const MOVE_CLASS = {
@@ -33,9 +32,11 @@ class Avatar2D {
   constructor() {
     this.el = null;
     this.container = null;
-    this.overlay = null;
     this.bubble = null;
     this._state = "idle";
+    this._speaking = false;
+    this._mouthEl = null;
+    this._mouthTimer = null;
   }
 
   init(container) {
@@ -72,52 +73,74 @@ class Avatar2D {
     this.bubble.style.display = "none";
     this.el.appendChild(this.bubble);
 
-    container.appendChild(this.el);
+    this._mouthEl = this.el.querySelector(".mouth");
 
+    container.appendChild(this.el);
     return this;
   }
 
   setState(state) {
     this._state = state;
     const cls = STATE_CLASS[state] || "idle";
-    const moodCls = ["smile", "sad", "angry", "excited"].includes(cls)
-      ? cls
-      : "neutral";
+    const moodCls = ["smile", "sad", "angry", "excited"].includes(cls) ? cls : "neutral";
 
     this.el.classList.remove(
       "idle", "smile", "sad", "angry", "excited",
       "sleep", "talk", "read", "relax", "think", "slow", "onphone",
-      "neutral",
+      "neutral", "listen",
     );
     this.el.classList.add(cls, moodCls);
     return this;
   }
 
-  talk() {
-    this.el.classList.add("talk");
+  talk() { this.el.classList.add("talk"); this._speaking = true; return this; }
+  stopTalking() { this.el.classList.remove("talk"); this._speaking = false; this._stopMouth(); return this; }
+
+  setSpeaking(speaking) {
+    this._speaking = speaking;
+    if (speaking) this.el.classList.add("talk");
+    else { this.el.classList.remove("talk"); this._stopMouth(); }
+    return this;
   }
 
-  stopTalking() {
-    this.el.classList.remove("talk");
+  /* 嘴型：mouthOpen 0~1，用 mouth 高度模拟开合 */
+  setMouthOpen(value) {
+    if (!this._mouthEl) return this;
+    const v = Math.max(0, Math.min(1, value || 0));
+    this._mouthEl.style.height = `${8 + v * 18}px`;
+    this._mouthEl.style.borderRadius = v > 0.2 ? "50%" : "";
+    return this;
+  }
+  setViseme(_v) { return this; }
+
+  /* 聆听：看向用户（轻微转头） */
+  setListening(listening) {
+    if (listening) {
+      this.el.classList.add("listen");
+      this.el.querySelector(".head").style.transform = "translateX(-50%) rotate(6deg)";
+    } else {
+      this.el.classList.remove("listen");
+      this.el.querySelector(".head").style.transform = "";
+    }
+    return this;
+  }
+  setThinking(thinking) {
+    if (thinking) this.setState("thinking");
+    return this;
   }
 
-  lookAtUser() {
-    this.el.classList.add("look");
-  }
+  lookAtUser() { return this; }
+  lookAt(_p) { return this; }
 
   moveTo(target) {
     const cls = MOVE_CLASS[target] || "at-center";
-    this.el.classList.remove(
-      "at-desk", "at-sofa", "at-bed", "at-window", "at-center",
-    );
+    this.el.classList.remove("at-desk", "at-sofa", "at-bed", "at-window", "at-center");
     this.el.classList.add(cls);
     return this;
   }
 
   play(animation) {
-    if (animation && STATE_CLASS[animation]) {
-      this.setState(animation);
-    }
+    if (animation && STATE_CLASS[animation]) this.setState(animation);
     return this;
   }
 
@@ -127,20 +150,21 @@ class Avatar2D {
     this.bubble.classList.remove("fade");
     return this;
   }
-
   hideBubble() {
     this.bubble.classList.add("fade");
-    setTimeout(() => {
-      this.bubble.style.display = "none";
-      this.bubble.classList.remove("fade");
-    }, 400);
+    setTimeout(() => { this.bubble.style.display = "none"; this.bubble.classList.remove("fade"); }, 400);
     return this;
   }
 
-  destroy() {
-    if (this.el && this.el.parentNode) {
-      this.el.parentNode.removeChild(this.el);
+  _stopMouth() {
+    if (this._mouthEl) {
+      this._mouthEl.style.height = "";
+      this._mouthEl.style.borderRadius = "";
     }
+  }
+
+  destroy() {
+    if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
   }
 }
 

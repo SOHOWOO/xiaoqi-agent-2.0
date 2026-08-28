@@ -5,8 +5,32 @@
    ═══════════════════════════════════════════════════ */
 
 import Avatar2D from "./avatar/avatar_2d.js";
+import AvatarThree from "./avatar/avatar_three.js";
 
-const avatar = new Avatar2D();
+import AudioInputAdapter from "./voice/audio_input_adapter.js";
+import VoicePipeline from "./voice/voice_pipeline.js";
+import { BrowserSTT, ServerSTT } from "./voice/stt_adapter.js";
+import { BrowserTTS } from "./voice/tts_adapter.js";
+
+/* ─────────── 3D Avatar（失败回退 2D） ─────────── */
+
+let avatar = null;
+let avatarMode = "2d";
+
+async function initAvatar() {
+  try {
+    const three = new AvatarThree();
+    await Promise.resolve(three.init(avatarMount));
+    avatar = three;
+    avatarMode = "3d";
+    console.log("[avatar] Three.js 3D");
+  } catch (error) {
+    console.warn("[avatar] 3D unavailable, fallback 2D:", error);
+    avatar = new Avatar2D().init(avatarMount);
+    avatarMode = "2d";
+  }
+  return avatar;
+}
 
 const bodyEl = document.body;
 const avatarMount = document.getElementById("avatar-mount");
@@ -18,6 +42,15 @@ const phoneInput = document.getElementById("phone-input");
 const sendBtn = document.getElementById("send-btn");
 const phoneStatusEl = document.getElementById("phone-status");
 const phoneClose = document.getElementById("phone-close");
+
+/* 极简提示（显示在手机状态栏，不进房间） */
+function showTip(text) {
+  phoneStatusEl.textContent = text;
+  clearTimeout(showTip._t);
+  showTip._t = setTimeout(() => {
+    phoneStatusEl.textContent = "在线";
+  }, 4000);
+}
 
 const observerEntry = document.getElementById("observer-entry");
 const observerEl = document.getElementById("observer");
@@ -384,10 +417,15 @@ phoneInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preve
 
 /* ─────────── 启动 ─────────── */
 
-avatar.init(avatarMount);
-applySettings();
-renderHistory();
-loadStatus();
+async function boot() {
+  await initAvatar();
+  applySettings();
+  renderHistory();
+  setupVoice();
+  loadStatus();
 
-setInterval(loadStatus, 5000);
-setInterval(pollProactive, 6000);
+  setInterval(loadStatus, 5000);
+  setInterval(pollProactive, 6000);
+}
+
+boot();
