@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小七 · Avatar 测试</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #111; color: #ddd; padding: 20px; }
+    h1 { color: #ff9a8b; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .panel { background: #1a1c28; border-radius: 12px; padding: 16px; }
+    .panel h3 { color: #ff9a8b; margin-bottom: 10px; font-size: 14px; }
+    .btn { padding: 7px 14px; border: 0; border-radius: 8px; cursor: pointer; margin: 3px; font: inherit; background: #2a2c3a; color: #ccc; }
+    .btn:hover { background: #3a3c4e; }
+    .btn.active { background: #ff6a88; color: #fff; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .val { color: #8fcb8f; }
+    .err { color: #ff6a6a; }
+    #vrm-status { font-size: 13px; line-height: 1.6; }
+    #avatar-mount { width: 100%; height: 300px; background: #0e0f18; border-radius: 8px; position: relative; overflow: hidden; }
+    pre { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>🧍 Avatar 开发测试</h1>
+  <div class="grid">
+    <div class="panel">
+      <h3>VRM 状态</h3>
+      <pre id="vrm-status">检测中…</pre>
+      <h3>当前模式</h3>
+      <div id="mode-display">-</div>
+    </div>
+    <div class="panel">
+      <h3>Avatar 视口</h3>
+      <div id="avatar-mount"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="panel">
+      <h3>表情</h3>
+      <div class="row">
+        <button class="btn" data-expr="neutral">neutral</button>
+        <button class="btn" data-expr="happy">happy</button>
+        <button class="btn" data-expr="sad">sad</button>
+        <button class="btn" data-expr="angry">angry</button>
+        <button class="btn" data-expr="surprised">surprised</button>
+        <button class="btn" data-expr="relaxed">relaxed</button>
+      </div>
+      <h3>口型</h3>
+      <div class="row">
+        <button class="btn" id="btn-mouth-on">Mouth Open</button>
+        <button class="btn" id="btn-mouth-off">Mouth Close</button>
+        <input type="range" id="mouth-slider" min="0" max="1" step="0.05" value="0" style="width:120px">
+      </div>
+      <h3>说话</h3>
+      <div class="row">
+        <button class="btn" id="btn-speak">说话 (TTS)</button>
+        <button class="btn" id="btn-stop">停止</button>
+      </div>
+      <h3>眨眼</h3>
+      <div class="row">
+        <button class="btn" id="btn-blink">手动眨眼</button>
+      </div>
+      <h3>LookAt</h3>
+      <div class="row">
+        <button class="btn" id="btn-look-here">看向用户</button>
+        <button class="btn" id="btn-look-away">移开视线</button>
+      </div>
+      <h3>位置</h3>
+      <div class="row">
+        <button class="btn" data-move="center">中央</button>
+        <button class="btn" data-move="sofa">沙发</button>
+        <button class="btn" data-move="bed">床</button>
+        <button class="btn" data-move="desk">书桌</button>
+        <button class="btn" data-move="window">窗口</button>
+      </div>
+      <h3>LifeLoop</h3>
+      <div class="row">
+        <button class="btn" id="btn-life-idle">idle</button>
+        <button class="btn" id="btn-life-sleep">sleeping</button>
+        <button class="btn" id="btn-life-read">reading</button>
+        <button class="btn" id="btn-life-relax">relaxing</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>日志</h3>
+      <pre id="log" style="max-height:400px;overflow-y:auto;font-size:12px">等待操作…</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import Avatar2D from "/avatar/avatar_2d.js";
+    import AvatarThree from "/avatar/avatar_three.js";
+    import AvatarVRM from "/avatar/avatar_vrm.js";
+
+    const mount = document.getElementById("avatar-mount");
+    const log = document.getElementById("log");
+    const modeEl = document.getElementById("mode-display");
+    const statusEl = document.getElementById("vrm-status");
+
+    function logMsg(msg) {
+      const t = new Date().toLocaleTimeString();
+      log.innerHTML = `<span class="val">[${t}]</span> ${msg}\n` + log.innerHTML;
+      if (log.innerHTML.length > 5000) log.innerHTML = log.innerHTML.slice(0, 5000);
+    }
+
+    /* VRM 状态 */
+    try {
+      const res = await fetch("/api/vrm-status");
+      const data = await res.json();
+      statusEl.innerHTML = JSON.stringify(data, null, 2);
+      logMsg(`VRM 状态: ${data.valid ? "✅ " + data.version : "❌ " + data.error}`);
+    } catch (e) {
+      statusEl.textContent = "获取失败";
+    }
+
+    /* 选择 Avatar */
+    let avatar = null;
+    let mode = "none";
+
+    try {
+      avatar = new AvatarVRM();
+      await avatar.init(mount);
+      mode = "VRM";
+      logMsg("✅ VRM Avatar 加载成功");
+    } catch (e) {
+      logMsg(`VRM 失败: ${e.message}，尝试 Three.js`);
+      try {
+        avatar = new AvatarThree();
+        await avatar.init(mount);
+        mode = "Three.js";
+        logMsg("✅ Three.js Avatar（程序化 3D）");
+      } catch (e2) {
+        logMsg(`Three.js 失败: ${e2.message}，fallback 2D`);
+        avatar = new Avatar2D().init(mount);
+        mode = "2D";
+        logMsg("✅ 2D Avatar fallback");
+      }
+    }
+    modeEl.textContent = mode;
+
+    /* 表情 */
+    document.querySelectorAll("[data-expr]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-expr]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        avatar.setState(btn.dataset.expr);
+        logMsg(`表情: ${btn.dataset.expr}`);
+      });
+    });
+
+    /* 口型 */
+    document.getElementById("btn-mouth-on").addEventListener("click", () => {
+      avatar.setMouthOpen(0.7);
+      logMsg("嘴型: 打开");
+    });
+    document.getElementById("btn-mouth-off").addEventListener("click", () => {
+      avatar.setMouthOpen(0);
+      logMsg("嘴型: 关闭");
+    });
+    document.getElementById("mouth-slider").addEventListener("input", (e) => {
+      avatar.setMouthOpen(parseFloat(e.target.value));
+    });
+
+    /* 说话 */
+    document.getElementById("btn-speak").addEventListener("click", async () => {
+      if ("speechSynthesis" in window) {
+        const utter = new SpeechSynthesisUtterance("你好，我是小七。很高兴见到你。");
+        utter.lang = "zh-CN";
+        utter.onstart = () => { avatar.setSpeaking(true); logMsg("说话开始"); };
+        utter.onend = () => { avatar.setSpeaking(false); logMsg("说话结束"); };
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+      } else {
+        logMsg("SpeechSynthesis 不可用");
+      }
+    });
+    document.getElementById("btn-stop").addEventListener("click", () => {
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      avatar.setSpeaking(false);
+      logMsg("停止说话");
+    });
+
+    /* 眨眼 */
+    document.getElementById("btn-blink").addEventListener("click", () => {
+      if (avatar.setState) {
+        avatar.setState("blink");
+        logMsg("手动眨眼");
+      }
+    });
+
+    /* LookAt */
+    document.getElementById("btn-look-here").addEventListener("click", () => {
+      avatar.lookAtUser();
+      logMsg("LookAt: 用户");
+    });
+    document.getElementById("btn-look-away").addEventListener("click", () => {
+      avatar.lookAt({ x: 3, y: 1, z: 0 });
+      logMsg("LookAt: 移开视线");
+    });
+
+    /* 位置 */
+    document.querySelectorAll("[data-move]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        avatar.moveTo(btn.dataset.move);
+        logMsg(`移动到: ${btn.dataset.move}`);
+      });
+    });
+
+    /* LifeLoop 状态 */
+    document.getElementById("btn-life-idle").addEventListener("click", () => { avatar.setState("neutral"); avatar.moveTo("center"); logMsg("LifeLoop: idle"); });
+    document.getElementById("btn-life-sleep").addEventListener("click", () => { avatar.setState("sleeping"); avatar.moveTo("bed"); logMsg("LifeLoop: sleeping"); });
+    document.getElementById("btn-life-read").addEventListener("click", () => { avatar.setState("calm"); avatar.moveTo("desk"); logMsg("LifeLoop: reading"); });
+    document.getElementById("btn-life-relax").addEventListener("click", () => { avatar.setState("relaxed"); avatar.moveTo("sofa"); logMsg("LifeLoop: relaxing"); });
+  </script>
+</body>
+</html>

@@ -6,30 +6,43 @@
 
 import Avatar2D from "./avatar/avatar_2d.js";
 import AvatarThree from "./avatar/avatar_three.js";
+import AvatarVRM from "./avatar/avatar_vrm.js";
 
 import AudioInputAdapter from "./voice/audio_input_adapter.js";
 import VoicePipeline from "./voice/voice_pipeline.js";
 import { BrowserSTT, ServerSTT } from "./voice/stt_adapter.js";
 import { BrowserTTS } from "./voice/tts_adapter.js";
 
-/* ─────────── 3D Avatar（失败回退 2D） ─────────── */
+/* ─────────── 3D Avatar（VRM → Three → 2D fallback） ─────────── */
 
 let avatar = null;
 let avatarMode = "2d";
 
 async function initAvatar() {
+  // 1. 尝试 VRM（即插即用）
+  try {
+    const vrm = new AvatarVRM();
+    await vrm.init(avatarMount);
+    avatar = vrm;
+    avatarMode = "vrm";
+    console.log("[avatar] VRM");
+    return;
+  } catch (error) {
+    console.warn("[avatar] VRM unavailable:", error.message);
+  }
+
+  // 2. 回退 Three.js（程序化 3D）
   try {
     const three = new AvatarThree();
     await Promise.resolve(three.init(avatarMount));
     avatar = three;
     avatarMode = "3d";
-    console.log("[avatar] Three.js 3D");
+    console.log("[avatar] Three.js");
   } catch (error) {
     console.warn("[avatar] 3D unavailable, fallback 2D:", error);
     avatar = new Avatar2D().init(avatarMount);
     avatarMode = "2d";
   }
-  return avatar;
 }
 
 const bodyEl = document.body;

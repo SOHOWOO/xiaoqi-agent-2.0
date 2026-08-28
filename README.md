@@ -33,6 +33,15 @@
   3D：Three.js(avatar_three) ← VRM(avatar_vrm) ← 2D fallback(avatar_2d)
 ```
 
+## 3D Avatar 与 VRM（即插即用）
+
+- **Three.js 3D**（`avatar_three.js`）：程序化 3D 小七（表情/嘴型/呼吸/眨眼/lookAt/移动/昼夜），始终可用
+- **VRM 即插即用**（`avatar_vrm.js` + `avatar_vrm_bundle.js`）：把 `web/assets/avatar/xiaoqi.vrm` 放进去 → 自动检测/加载/Humanoid/Expression/LookAt/眨眼/嘴型/LifeLoop/Voice
+- **自动选择**：VRM → Three.js → 2D，**永不白屏**，VRM 缺失/不兼容明确记录原因并降级
+- **校验**：`GET /api/vrm-status` 结构化检测（`VRM_NOT_FOUND` / `VRM_INVALID` / `VRM_NO_HUMANOID`…）
+- **开发测试**：`http://127.0.0.1:8000/avatar-test`（表情/口型/眨眼/LookAt/移动/LifeLoop/说话）
+- 制作流程见 `docs/avatar-development.md`
+
 ## 启动
 
 ```bash

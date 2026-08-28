@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from web_runtime import WebRuntime
+from vrm_validator import check_available_model
 
 
 ROOT = Path(__file__).resolve().parent
@@ -175,6 +176,19 @@ class WebHandler(BaseHTTPRequestHandler):
 
             self._send_json(
                 {"memories": RUNTIME.memory_data()}
+            )
+            return
+
+        if path == "/avatar-test":
+            self._send_file(
+                WEB_DIR / "avatar-test.html",
+                "text/html; charset=utf-8",
+            )
+            return
+
+        if path == "/api/vrm-status":
+            self._send_json(
+                check_available_model()
             )
             return
 
