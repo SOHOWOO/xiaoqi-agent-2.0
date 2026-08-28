@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>小七 · 设置</title>
+  <link rel="stylesheet" href="/settings.css">
+</head>
+<body>
+
+  <!-- 首次启动欢迎页 -->
+  <div id="welcome" class="welcome hidden">
+    <div class="welcome-card">
+      <h1>欢迎来到小七</h1>
+      <p class="sub">让我们先把小七准备好</p>
+
+      <div id="setup-step-1" class="setup-step">
+        <h3>① 配置 AI 大脑（DeepSeek）</h3>
+        <p class="hint">小七需要 AI 大脑才能与你对话。</p>
+        <input id="setup-deepseek-key" type="password" placeholder="输入 DeepSeek API Key" autocomplete="off">
+        <div class="btn-row">
+          <button id="setup-test" class="btn primary">测试连接</button>
+        </div>
+        <div id="setup-test-result" class="result"></div>
+        <button id="setup-next" class="btn primary full">下一步</button>
+      </div>
+
+      <div id="setup-step-2" class="setup-step hidden">
+        <h3>② 配置小七的声音（阿里云，可跳过）</h3>
+        <p class="hint">配置后小七能用克隆声音说话；跳过则用浏览器语音。</p>
+        <input id="setup-alibaba-key" type="password" placeholder="输入阿里云 API Key" autocomplete="off">
+        <input id="setup-voice-id" placeholder="Voice ID（可选，之后在设置中填写）" autocomplete="off">
+        <div class="btn-row">
+          <button id="setup-skip" class="btn">跳过</button>
+          <button id="setup-done" class="btn primary">完成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置中心 -->
+  <div id="settings" class="settings hidden">
+    <aside class="sidebar">
+      <div class="logo">小七</div>
+      <nav>
+        <button data-section="ai" class="active">🧠 AI 大脑</button>
+        <button data-section="tts">🔊 语音</button>
+        <button data-section="stt">🎙️ 语音输入</button>
+        <button data-section="home">🏠 小家</button>
+        <button data-section="relation">❤️ 关系</button>
+        <button data-section="memory">🧠 记忆</button>
+        <button data-section="proactive">💬 主动行为</button>
+        <button data-section="appearance">🎨 外观</button>
+        <button data-section="keys">🔐 API 密钥</button>
+        <button data-section="system">⚙️ 系统</button>
+        <button data-section="about">ℹ️ 关于</button>
+      </nav>
+      <div class="status-mini">
+        <span id="mini-core">Core…</span>
+        <span id="mini-ai">AI…</span>
+        <span id="mini-tts">TTS…</span>
+        <span id="mini-stt">STT…</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div id="panel-ai" class="panel active">
+        <h2>🧠 AI 大脑</h2>
+        <label>Provider
+          <select id="ai-provider">
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI / 兼容</option>
+            <option value="qwen">Qwen</option>
+            <option value="custom">自定义 API</option>
+          </select>
+        </label>
+        <label>Base URL <input id="ai-base-url" placeholder="https://api.deepseek.com"></label>
+        <label>Model <input id="ai-model" placeholder="deepseek-v4-flash"></label>
+        <label>Temperature <input id="ai-temp" type="number" step="0.1" min="0" max="2"></label>
+        <label>Max Tokens <input id="ai-max-tokens" type="number" min="1"></label>
+        <div class="btn-row">
+          <button id="ai-save" class="btn primary">保存</button>
+          <button id="ai-test" class="btn">测试连接</button>
+        </div>
+        <div id="ai-result" class="result"></div>
+      </div>
+
+      <div id="panel-tts" class="panel">
+        <h2>🔊 语音（TTS）</h2>
+        <label>TTS Provider
+          <select id="tts-provider">
+            <option value="alibaba">阿里云 Qwen3-TTS</option>
+            <option value="browser">浏览器语音（fallback）</option>
+          </select>
+        </label>
+        <label>Model <input id="tts-model" placeholder="qwen3-tts-flash"></label>
+        <label>语言 <input id="tts-language" placeholder="Chinese"></label>
+        <label>区域
+          <select id="tts-region">
+            <option value="singapore">新加坡</option>
+            <option value="beijing">北京</option>
+          </select>
+        </label>
+        <div class="btn-row">
+          <button id="tts-save" class="btn primary">保存</button>
+          <button id="tts-test" class="btn">测试声音</button>
+        </div>
+        <div id="tts-result" class="result"></div>
+      </div>
+
+      <div id="panel-stt" class="panel">
+        <h2>🎙️ 语音输入（STT）</h2>
+        <label>STT Provider
+          <select id="stt-provider">
+            <option value="browser">浏览器识别</option>
+            <option value="faster-whisper">faster-whisper（本地）</option>
+          </select>
+        </label>
+        <label>语言 <input id="stt-language" placeholder="zh-CN"></label>
+        <div class="btn-row">
+          <button id="stt-save" class="btn primary">保存</button>
+          <button id="stt-test" class="btn">测试麦克风</button>
+        </div>
+        <div id="stt-result" class="result"></div>
+      </div>
+
+      <div id="panel-home" class="panel">
+        <h2>🏠 小家</h2>
+        <label class="switch"><span>主动消息</span><input id="ui-proactive" type="checkbox"></label>
+        <label class="switch"><span>状态 HUD</span><input id="ui-hud" type="checkbox"></label>
+        <label>模拟速度（分钟/现实秒）<input id="life-speed" type="number" min="1"></label>
+        <button id="home-save" class="btn primary">保存</button>
+      </div>
+
+      <div id="panel-relation" class="panel">
+        <h2>❤️ 关系</h2>
+        <p class="hint">关系由互动自然成长，无需手动设置。</p>
+        <div id="relation-view" class="result"></div>
+      </div>
+
+      <div id="panel-memory" class="panel">
+        <h2>🧠 记忆</h2>
+        <p class="hint">记忆自动沉淀在用户数据目录。</p>
+        <div class="btn-row">
+          <button id="memory-export" class="btn">导出记忆</button>
+          <button id="memory-import" class="btn">导入记忆</button>
+          <button id="memory-clear" class="btn danger">清空记忆</button>
+        </div>
+        <div id="memory-result" class="result"></div>
+      </div>
+
+      <div id="panel-proactive" class="panel">
+        <h2>💬 主动行为</h2>
+        <p class="hint">小七会主动找你聊天。</p>
+        <label class="switch"><span>允许主动消息</span><input id="proactive-toggle" type="checkbox"></label>
+        <button id="proactive-save" class="btn primary">保存</button>
+      </div>
+
+      <div id="panel-appearance" class="panel">
+        <h2>🎨 外观</h2>
+        <label class="switch"><span>夜间模式</span><input id="appearance-night" type="checkbox"></label>
+        <label class="switch"><span>音效</span><input id="appearance-sound" type="checkbox"></label>
+        <button id="appearance-save" class="btn primary">保存</button>
+      </div>
+
+      <div id="panel-keys" class="panel">
+        <h2>🔐 API 密钥</h2>
+        <div class="key-card">
+          <div class="key-head"><strong>DeepSeek</strong><span id="deepseek-status">未配置</span></div>
+          <input id="key-deepseek" type="password" placeholder="DeepSeek API Key" autocomplete="off">
+          <div class="btn-row">
+            <button id="key-deepseek-save" class="btn primary">保存</button>
+            <button id="key-deepseek-test" class="btn">测试</button>
+            <button id="key-deepseek-del" class="btn danger">删除</button>
+          </div>
+        </div>
+        <div class="key-card">
+          <div class="key-head"><strong>阿里云（TTS）</strong><span id="alibaba-status">未配置</span></div>
+          <input id="key-alibaba" type="password" placeholder="阿里云 API Key" autocomplete="off">
+          <input id="voice-id-input" placeholder="Voice ID" autocomplete="off">
+          <div class="btn-row">
+            <button id="key-alibaba-save" class="btn primary">保存</button>
+            <button id="key-alibaba-del" class="btn danger">删除</button>
+          </div>
+        </div>
+        <p class="hint">API Key 只保存在本机用户数据目录，绝不上传或写入日志。</p>
+      </div>
+
+      <div id="panel-system" class="panel">
+        <h2>⚙️ 系统</h2>
+        <div id="system-status" class="result"></div>
+      </div>
+
+      <div id="panel-about" class="panel">
+        <h2>ℹ️ 关于</h2>
+        <p><strong>小七</strong> · 版本 0.1.0</p>
+        <p>拥有身体、感知、记忆、情绪、关系、主动行为和长期成长能力的 AI 生命体。</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/settings.js"></script>
+</body>
+</html>

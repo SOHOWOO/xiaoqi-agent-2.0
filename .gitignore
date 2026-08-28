@@ -17,3 +17,10 @@ voice/profiles/*/reference.mp3
 
 # TTS test output
 tmp/
+
+# PyInstaller build output
+dist/
+build/
+*.spec
+*.pyc
+__pycache__/

@@ -1,0 +1,53 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: #151826; color: #e5e7eb; overflow: hidden; }
+
+.hidden { display: none !important; }
+
+/* 欢迎页 */
+.welcome { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #1a1c2c, #241a2c); z-index: 50; }
+.welcome-card { width: min(480px, 92vw); background: rgba(30,32,48,0.9); border-radius: 20px; padding: 36px 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.welcome-card h1 { font-size: 26px; color: #ff9a8b; margin-bottom: 6px; }
+.welcome-card .sub { color: #aab0c0; margin-bottom: 24px; }
+.setup-step h3 { color: #ff9a8b; margin-bottom: 8px; font-size: 16px; }
+.setup-step .hint { color: #8a90a2; font-size: 13px; margin-bottom: 12px; }
+.setup-step input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; font: inherit; font-size: 14px; margin-bottom: 10px; outline: none; }
+.setup-step input:focus { border-color: #ff6a88; }
+.btn-row { display: flex; gap: 8px; margin-top: 6px; }
+.btn { padding: 9px 16px; border: 0; border-radius: 10px; cursor: pointer; font: inherit; background: rgba(255,255,255,0.1); color: #ddd; }
+.btn:hover { background: rgba(255,255,255,0.18); }
+.btn.primary { background: #ff6a88; color: #fff; }
+.btn.primary:hover { background: #ff5070; }
+.btn.danger { background: rgba(255,80,80,0.2); color: #ff8a8a; }
+.btn.full { width: 100%; margin-top: 12px; padding: 12px; }
+.result { margin-top: 10px; font-size: 13px; min-height: 18px; }
+.result.ok { color: #7dd87d; }
+.result.err { color: #ff8a8a; }
+
+/* 设置中心 */
+.settings { position: fixed; inset: 0; display: flex; }
+.sidebar { width: 220px; background: #12141f; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.06); }
+.logo { padding: 22px 20px; font-size: 22px; font-weight: 700; color: #ff9a8b; }
+.sidebar nav { flex: 1; display: flex; flex-direction: column; padding: 0 10px; gap: 2px; overflow-y: auto; }
+.sidebar nav button { text-align: left; padding: 11px 14px; border: 0; background: transparent; color: #aab0c0; font: inherit; font-size: 14px; border-radius: 9px; cursor: pointer; }
+.sidebar nav button:hover { background: rgba(255,255,255,0.06); }
+.sidebar nav button.active { background: rgba(255,120,130,0.16); color: #fff; }
+.status-mini { padding: 14px 18px; font-size: 12px; color: #8a90a2; display: flex; flex-direction: column; gap: 3px; border-top: 1px solid rgba(255,255,255,0.06); }
+
+.content { flex: 1; overflow-y: auto; padding: 28px 34px; }
+.panel { display: none; }
+.panel.active { display: block; }
+.panel h2 { color: #ff9a8b; margin-bottom: 18px; font-size: 20px; }
+.panel label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; color: #c5cad6; font-size: 13px; }
+.panel label.switch { flex-direction: row; align-items: center; justify-content: space-between; }
+.panel input, .panel select { padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; font: inherit; font-size: 14px; outline: none; }
+.panel input:focus, .panel select:focus { border-color: #ff6a88; }
+.panel input[type="checkbox"] { width: 18px; height: 18px; accent-color: #ff6a88; }
+.panel .hint { color: #8a90a2; font-size: 13px; margin-bottom: 14px; }
+
+.key-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.key-head { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; }
+.key-head strong { color: #fff; }
+.key-head span { font-size: 12px; padding: 3px 10px; border-radius: 8px; background: rgba(255,150,60,0.15); color: #ffb066; }
+.key-head span.ok { background: rgba(80,200,120,0.15); color: #7dd87d; }
+.key-card input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #fff; font: inherit; margin-bottom: 8px; outline: none; }

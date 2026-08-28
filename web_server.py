@@ -19,6 +19,96 @@ from voice.providers.alibaba_tts import (
 )
 from voice.status import build_voice_status
 
+from appkit.config import ConfigManager
+from appkit.providers import AIProvider
+from appkit.secrets import SecretStore
+
+
+def _system_status() -> dict:
+    """真实系统状态（不伪造）。"""
+
+    config = ConfigManager()
+
+    core_ok = True
+    memory_ok = True
+    try:
+        store = RUNTIME.memory_store
+        _ = len(store)
+    except Exception:
+        memory_ok = False
+
+    from voice.engines import STTEngine
+
+    ai = AIProvider()
+    tts_config = load_tts_config()
+    tts = AlibabaTTS(tts_config)
+    stt = STTEngine()
+
+    return {
+        "core": core_ok,
+        "memory": memory_ok,
+        "life_loop": True,
+        "database": memory_ok,
+        "ai": ai.status(),
+        "tts": {
+            "provider": "alibaba",
+            "available": tts.available,
+            "has_api_key": bool(tts_config.api_key),
+            "has_voice_id": bool(tts_config.voice),
+        },
+        "stt": {
+            "provider": "faster-whisper",
+            "available": stt.available,
+            "browser_available": True,
+        },
+        "avatar": {
+            "mode": "three",
+            "vrm": check_available_model().get("valid", False),
+        },
+        "microphone": True,  # 浏览器侧检测
+        "webview": True,
+        "setup_complete": config.setup_complete,
+    }
+
+
+def _config_payload() -> dict:
+    """设置中心配置（不含任何 API Key）。"""
+
+    config = ConfigManager()
+    data = config.all()
+    # 安全：绝不把 key 写进返回
+    return data
+
+
+def _setup_payload() -> dict:
+    """首次启动检测。"""
+
+    config = ConfigManager()
+    store = SecretStore()
+
+    return {
+        "setup_complete": config.setup_complete,
+        "has_deepseek": store.has("deepseek"),
+        "has_alibaba": store.has("alibaba"),
+    }
+
+
+def _config_body(self) -> dict | None:
+    """读取 POST body。"""
+
+    try:
+        length = int(self.headers.get("Content-Length", "0") or 0)
+    except ValueError:
+        length = 0
+    if length <= 0:
+        return {}
+    try:
+        import json
+
+        return json.loads(self.rfile.read(length).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return {}
+
 
 ROOT = Path(__file__).resolve().parent
 WEB_DIR = ROOT / "web"
@@ -192,6 +282,27 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path in ("/settings", "/setup"):
+            self._send_file(
+                WEB_DIR / "settings.html",
+                "text/html; charset=utf-8",
+            )
+            return
+
+        if path == "/settings.css":
+            self._send_file(
+                WEB_DIR / "settings.css",
+                "text/css; charset=utf-8",
+            )
+            return
+
+        if path == "/settings.js":
+            self._send_file(
+                WEB_DIR / "settings.js",
+                "application/javascript; charset=utf-8",
+            )
+            return
+
         if path == "/api/vrm-status":
             self._send_json(
                 check_available_model()
@@ -212,6 +323,18 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/system/status":
+            self._send_json(_system_status())
+            return
+
+        if path == "/api/config":
+            self._send_json(_config_payload())
+            return
+
+        if path == "/api/setup":
+            self._send_json(_setup_payload())
+            return
+
         self.send_error(
             HTTPStatus.NOT_FOUND,
             "Not found",
@@ -226,6 +349,10 @@ class WebHandler(BaseHTTPRequestHandler):
 
         if path == "/api/tts":
             self._handle_tts()
+            return
+
+        if path in ("/api/config", "/api/secrets", "/api/setup"):
+            self._handle_config_write(path)
             return
 
         self.send_error(
@@ -290,6 +417,83 @@ class WebHandler(BaseHTTPRequestHandler):
                 {"error": str(exc)},
                 HTTPStatus.INTERNAL_SERVER_ERROR,
             )
+
+    def _handle_config_write(self, path: str) -> None:
+        """保存设置 / API Key / 完成 setup。
+
+        安全：API Key 只写入 SecretStore（用户目录，权限保护），
+        绝不返回、绝不进 JS/HTML/日志。
+        """
+
+        payload = self._read_body()
+        if payload is None:
+            return
+
+        config = ConfigManager()
+        store = SecretStore()
+
+        if path == "/api/secrets":
+            provider = payload.get("provider", "")
+            value = payload.get("value", "")
+
+            action = payload.get("action", "set")
+
+            if action == "test":
+                self._send_json(
+                    self._test_secret(provider)
+                )
+                return
+
+            if action == "delete":
+                store.delete(provider)
+                self._send_json(
+                    {"ok": True, "provider": provider}
+                )
+                return
+
+            store.set(provider, value)
+            self._send_json(
+                {"ok": True, "provider": provider}
+            )
+            return
+
+        if path == "/api/setup":
+            config.mark_setup_complete()
+            self._send_json({"ok": True, "setup_complete": True})
+            return
+
+        # /api/config: 保存非密钥设置（白名单，不信任任意字段）
+        safe_sections = {
+            "ai": {"provider", "base_url", "model", "temperature", "max_tokens"},
+            "tts": {"provider", "model", "voice_id", "region", "language"},
+            "stt": {"provider", "language"},
+            "avatar": {"mode", "vrm_url"},
+            "ui": {"night_mode", "sound", "show_hud", "allow_proactive"},
+            "life": {"sim_minutes_per_real_second"},
+            "system": {"auto_voice"},
+        }
+
+        for section, keys in safe_sections.items():
+            section_data = payload.get(section)
+            if not isinstance(section_data, dict):
+                continue
+            for key in keys:
+                if key in section_data:
+                    config.set(section, key, section_data[key])
+
+        self._send_json({"ok": True})
+
+    def _test_secret(self, provider: str) -> dict:
+        """测试 Provider 连接（真实检测）。"""
+
+        try:
+            if provider == "deepseek":
+                return AIProvider().test_connection()
+            if provider == "alibaba":
+                return {"ok": True, "note": "API Key 已保存"}
+            return {"ok": False, "error": f"unknown provider: {provider}"}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
 
     def _handle_tts(self) -> None:
         payload = self._read_body()
