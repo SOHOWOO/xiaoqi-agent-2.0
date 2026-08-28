@@ -133,6 +133,14 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/observer":
+            RUNTIME.advance()
+
+            self._send_json(
+                RUNTIME.observer_state()
+            )
+            return
+
         self.send_error(
             HTTPStatus.NOT_FOUND,
             "Not found",

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import threading
 from datetime import datetime
@@ -310,6 +310,123 @@ class WebRuntime:
                     )
                 ),
             }
+
+    def observer_state(self) -> dict:
+        """心灵观察站综合数据（只读，接真实核心状态）。"""
+
+        with self._lock:
+            emotion = self.life_loop.emotion.state()
+            neuro = self.life_loop.neurochemical.state()
+            relationship = (
+                self.life_loop.relationship_engine.state
+            )
+
+            diaries = [
+                {
+                    "date": entry.date.isoformat(),
+                    "content": entry.content,
+                    "mood_tags": list(entry.mood_tags),
+                }
+                for entry in self.life_loop.diary.recent(
+                    limit=10
+                )
+            ]
+
+            memories = [
+                {
+                    "type": memory.memory_type.value,
+                    "content": memory.content,
+                    "created_at": (
+                        memory.created_at.isoformat()
+                    ),
+                }
+                for memory in (
+                    self.life_loop
+                    .memory_store
+                    .recent(limit=30)
+                )
+            ]
+
+            schedule = self._schedule_snapshot()
+
+            return {
+                "emotion": {
+                    "current": emotion.as_dict(),
+                    "dominant": emotion.dominant().value,
+                    "valence": round(
+                        emotion.as_dict()["happy"]
+                        + emotion.as_dict()["calm"]
+                        - emotion.as_dict()["lonely"]
+                        - emotion.as_dict()["angry"],
+                        3,
+                    ),
+                },
+                "neurochemical": neuro.as_dict(),
+                "relationship": relationship.as_dict(),
+                "diaries": diaries,
+                "memories": memories,
+                "schedule": schedule,
+            }
+
+    def _schedule_snapshot(self) -> dict:
+        """返回当前作息信息。"""
+
+        state = self.life_loop.life_state
+
+        schedule_engine = getattr(
+            self.life_loop.simulator,
+            "schedule_engine",
+            None,
+        )
+
+        slots = []
+        today_slots = []
+
+        if schedule_engine is not None:
+            slots = [
+                {
+                    "id": slot.slot_id,
+                    "name": slot.name,
+                    "start": (
+                        f"{slot.start_seconds // 3600:02d}:"
+                        f"{(slot.start_seconds % 3600) // 60:02d}"
+                    ),
+                    "end": (
+                        f"{slot.end_seconds // 3600:02d}:"
+                        f"{(slot.end_seconds % 3600) // 60:02d}"
+                    ),
+                }
+                for slot in schedule_engine.workday_slots
+            ]
+
+            try:
+                today_slots = [
+                    {
+                        "id": occurrence.slot_id,
+                        "name": occurrence.name,
+                        "start": (
+                            f"{occurrence.start_seconds // 3600:02d}:"
+                            f"{(occurrence.start_seconds % 3600) // 60:02d}"
+                        ),
+                        "end": (
+                            f"{occurrence.end_seconds // 3600:02d}:"
+                            f"{(occurrence.end_seconds % 3600) // 60:02d}"
+                        ),
+                    }
+                    for occurrence in (
+                        schedule_engine.slots_for_date(
+                            state.current_time.date()
+                        )
+                    )
+                ]
+            except Exception:
+                today_slots = []
+
+        return {
+            "current_slot": state.current_slot_id,
+            "current_activity": state.current_activity,
+            "today": today_slots or slots,
+        }
 
     def life_state_dict(self) -> dict:
         with self._lock:

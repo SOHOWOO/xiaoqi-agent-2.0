@@ -1,171 +1,622 @@
+/* ═══════════════════════════════════════════════════
+   小七 · Living World ZERO UI
+   房间纯净观察窗口：无文字 / 无 HUD / 无按钮
+   ═══════════════════════════════════════════════════ */
+
 :root {
-  font-family:
-    Inter,
-    "PingFang SC",
-    "Microsoft YaHei",
-    system-ui,
-    sans-serif;
-  color: #1f2937;
-  background: #f4f1ed;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color-scheme: light dark;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; overflow: hidden; }
 
 body {
-  margin: 0;
-  min-height: 100vh;
+  background: #1a1c22;
+  font-family: inherit;
+}
+
+/* ─────────── 世界层（全屏） ─────────── */
+.world {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  perspective: 1200px;
+}
+
+/* 天空 */
+.sky {
+  position: absolute;
+  inset: 0;
+  transition: background 2s ease;
+}
+
+/* 窗外（窗户框架 + 城市剪影） */
+.window-frame {
+  position: absolute;
+  top: 6%;
+  left: 8%;
+  width: 34%;
+  height: 46%;
+  background: rgba(20, 24, 34, 0.25);
+  border-radius: 14px 14px 6px 6px;
+  border: 6px solid rgba(120, 100, 80, 0.5);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  transition: border-color 2s ease;
+}
+
+.cityscape {
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(circle at top left, #fff7f0 0, transparent 35%),
-    #f4f1ed;
+    linear-gradient(180deg, transparent 60%, rgba(40, 46, 66, 0.7) 60%,
+      rgba(30, 34, 52, 0.8) 75%, rgba(20, 24, 38, 0.9) 100%);
+  transition: background 2s ease;
 }
 
-.chat-shell {
-  width: min(900px, 100%);
-  height: 100vh;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  background: rgba(255, 255, 255, 0.92);
+.cityscape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 40px,
+      rgba(10, 12, 20, 0.5) 40px 46px,
+      transparent 46px 90px,
+      rgba(10, 12, 20, 0.35) 90px 95px);
+  background-position: 0 62%;
+  background-size: 100% 38%;
+  background-repeat: no-repeat;
 }
 
-.chat-header {
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid #e5e7eb;
+/* 房间 */
+.room {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  overflow: hidden;
+  transition: background 2s ease;
+}
+
+.wall {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(120, 96, 74, 0.5), rgba(86, 68, 52, 0.6));
+  transition: background 2s ease;
+}
+
+.floor {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: 0;
+  height: 46%;
+  transform: rotateX(18deg);
+  transform-origin: bottom;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(74, 56, 42, 0.55) 0 90px,
+      rgba(60, 44, 32, 0.55) 90px 92px),
+    linear-gradient(180deg, rgba(96, 74, 56, 0.7), rgba(60, 44, 34, 0.8));
+  box-shadow: inset 0 30px 60px rgba(0, 0, 0, 0.35);
+  transition: background 2s ease;
+}
+
+/* ─────────── 家具（只做剪影，无交互） ─────────── */
+.furniture { position: absolute; inset: 0; }
+
+.furniture > div { position: absolute; transition: opacity 2s ease; }
+
+/* 沙发 */
+.sofa {
+  left: 6%;
+  bottom: 18%;
+  width: 34%;
+  height: 22%;
+  background: rgba(150, 96, 74, 0.65);
+  border-radius: 16px 16px 6px 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+.sofa .sofa-arm { position: absolute; top: -18%; width: 14%; height: 40%; background: rgba(140, 88, 66, 0.7); border-radius: 10px 10px 4px 4px; }
+.sofa .sofa-arm.a { left: 0; }
+.sofa .sofa-arm.b { right: 0; }
+.sofa .sofa-seat { position: absolute; top: 22%; left: 14%; right: 14%; bottom: 6%; background: rgba(160, 104, 80, 0.5); border-radius: 10px; }
+
+/* 桌子 */
+.table { right: 10%; bottom: 20%; width: 22%; height: 16%; }
+.table .table-top { position: absolute; inset: 0 6% 30% 6%; background: rgba(110, 82, 58, 0.75); border-radius: 8px; box-shadow: 0 6px 14px rgba(0,0,0,0.35); }
+.table .table-leg { position: absolute; left: 40%; top: 55%; width: 20%; height: 45%; background: rgba(90, 66, 46, 0.6); }
+
+/* 床 */
+.bed { right: 4%; bottom: 6%; width: 42%; height: 16%; background: rgba(150, 112, 86, 0.6); border-radius: 12px 12px 4px 4px; box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
+.bed .pillow { position: absolute; left: 4%; top: -24%; width: 22%; height: 46%; background: rgba(210, 190, 170, 0.6); border-radius: 10px; }
+.bed .blanket { position: absolute; left: 24%; right: 4%; top: -6%; height: 60%; background: rgba(196, 120, 100, 0.55); border-radius: 10px; }
+
+/* 台灯 */
+.lamp { right: 36%; bottom: 34%; width: 8%; height: 26%; }
+.lamp .lamp-stand { position: absolute; left: 44%; top: 40%; width: 12%; height: 60%; background: rgba(70, 58, 46, 0.7); }
+.lamp .lamp-shade {
+  position: absolute; left: 10%; top: 0; width: 80%; height: 46%;
+  background: rgba(240, 200, 130, 0.6);
+  clip-path: polygon(20% 100%, 80% 100%, 100% 0, 0 0);
+}
+
+/* 植物 */
+.plant { left: 44%; bottom: 20%; width: 12%; height: 24%; }
+.plant .pot { position: absolute; left: 20%; bottom: 0; width: 60%; height: 30%; background: rgba(120, 84, 58, 0.7); border-radius: 6px 6px 10px 10px; }
+.plant .leaf { position: absolute; bottom: 24%; width: 14%; height: 60%; background: rgba(90, 140, 84, 0.6); border-radius: 60% 20% 60% 20%; }
+.plant .l1 { left: 20%; transform: rotate(-30deg); }
+.plant .l2 { left: 44%; height: 80%; }
+.plant .l3 { right: 20%; transform: rotate(30deg); }
+
+/* 墙上画框 */
+.frame-on-wall { left: 46%; top: 12%; width: 12%; height: 16%; background: rgba(90, 70, 54, 0.5); border: 4px solid rgba(120, 96, 74, 0.55); border-radius: 4px; }
+
+/* ─────────── 小七（CSS 人物） ─────────── */
+.xiaoqi {
+  position: absolute;
+  left: 38%;
+  bottom: 34%;
+  width: 24%;
+  height: 42%;
+  z-index: 10;
+  transition: left 2.4s ease, bottom 2.4s ease, transform 1s ease;
+}
+
+.xiaoqi .shadow {
+  position: absolute;
+  bottom: -4%;
+  left: 4%;
+  width: 92%;
+  height: 10%;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+  filter: blur(3px);
+  transition: width 1s ease, opacity 1s ease;
+}
+
+.xiaoqi .figure {
+  position: absolute;
+  inset: 0;
+  transition: transform 1.6s ease;
+}
+
+/* 头 */
+.xiaoqi .head {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 44%;
+  height: 40%;
+  transform: translateX(-50%);
+}
+.xiaoqi .hair {
+  position: absolute;
+  inset: 0 4% 8% 4%;
+  background: linear-gradient(180deg, #4a3a2e, #3a2c22);
+  border-radius: 52% 52% 46% 46%;
+}
+.xiaoqi .hair::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -6%;
+  height: 26%;
+  background: #3a2c22;
+  border-radius: 0 0 40% 40%;
+}
+.xiaoqi .face {
+  position: absolute;
+  left: 16%;
+  top: 24%;
+  width: 68%;
+  height: 66%;
+  background: #f4c9a8;
+  border-radius: 46% 46% 48% 48%;
+}
+.xiaoqi .eye {
+  position: absolute;
+  top: 40%;
+  width: 12%;
+  height: 14%;
+  background: #2b201a;
+  border-radius: 50%;
+  transition: all 0.4s ease;
+}
+.xiaoqi .eye.left { left: 20%; }
+.xiaoqi .eye.right { right: 20%; }
+.xiaoqi .mouth {
+  position: absolute;
+  left: 40%;
+  top: 62%;
+  width: 20%;
+  height: 8%;
+  border-bottom: 2px solid #8a5a44;
+  border-radius: 50%;
+  transition: all 0.4s ease;
+}
+.xiaoqi .blush {
+  position: absolute;
+  top: 56%;
+  width: 14%;
+  height: 8%;
+  border-radius: 50%;
+  background: rgba(240, 120, 120, 0);
+  transition: all 0.4s ease;
+}
+.xiaoqi .blush.left { left: 8%; }
+.xiaoqi .blush.right { right: 8%; }
+
+/* 身体 */
+.xiaoqi .body {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 46%;
+  height: 42%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #e8a88a, #d89474);
+  border-radius: 34% 34% 20% 20%;
+}
+.xiaoqi .arm {
+  position: absolute;
+  top: 42%;
+  width: 10%;
+  height: 34%;
+  background: #e8a88a;
+  border-radius: 8px;
+  transition: transform 1s ease;
+}
+.xiaoqi .arm.left { left: 30%; transform: rotate(4deg); transform-origin: top; }
+.xiaoqi .arm.right { right: 30%; transform: rotate(-4deg); transform-origin: top; }
+.xiaoqi .leg {
+  position: absolute;
+  top: 78%;
+  width: 12%;
+  height: 22%;
+  background: #7a5a4a;
+  border-radius: 6px;
+}
+.xiaoqi .leg.left { left: 36%; }
+.xiaoqi .leg.right { right: 36%; }
+
+.xiaoqi .phone-in-hand {
+  position: absolute;
+  right: 16%;
+  top: 60%;
+  width: 10%;
+  height: 14%;
+  background: #222;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+/* 姿势：坐沙发 */
+.xiaoqi.sit {
+  left: 10%;
+  bottom: 24%;
+  height: 26%;
+}
+.xiaoqi.sit .figure { transform: scale(0.72) translateY(16%); }
+.xiaoqi.sit .leg { height: 10%; }
+
+/* 姿势：睡觉（床上） */
+.xiaoqi.sleep {
+  left: 8%;
+  bottom: 8%;
+  height: 18%;
+  width: 30%;
+}
+.xiaoqi.sleep .figure { transform: rotate(-8deg) scale(0.8) translateY(30%); }
+.xiaoqi.sleep .head { width: 34%; }
+
+/* 姿势：出门（不在房间） */
+.xiaoqi.leave {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.4s ease;
+}
+
+/* 表情 */
+.xiaoqi.smile .mouth { height: 30%; border-bottom: 3px solid #8a5a44; border-radius: 0 0 60% 60%; }
+.xiaoqi.smile .blush { background: rgba(240, 120, 120, 0.5); }
+.xiaoqi.smile .eye { height: 10%; }
+.xiaoqi.sad .mouth { transform: rotate(180deg); border-radius: 60% 60% 0 0; top: 56%; }
+.xiaoqi.sad .eye { height: 8%; top: 44%; }
+.xiaoqi.angry .mouth { width: 26%; left: 37%; border-bottom: 3px solid #8a5a44; border-radius: 20%; transform: rotate(0); }
+.xiaoqi.angry .eye { height: 12%; }
+.xiaoqi.excited .eye { height: 20%; }
+.xiaoqi.excited .mouth { height: 34%; border-bottom: 4px solid #8a5a44; border-radius: 0 0 60% 60%; }
+.xiaoqi.worried .eye { height: 20%; top: 36%; }
+.xiaoqi.worried .mouth { width: 12%; height: 14%; }
+
+/* 动作速度（疲劳） */
+.xiaoqi.slow .figure { animation: sway 4.6s ease-in-out infinite; }
+.xiaoqi .figure { animation: sway 3.2s ease-in-out infinite; }
+@keyframes sway {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2%); }
+}
+
+/* 看手机 */
+.xiaoqi.onphone .phone-in-hand { opacity: 1; }
+.xiaoqi.onphone .head { transform: translateX(-50%) rotate(6deg); }
+
+/* ─────────── 光影 / 天气 ─────────── */
+.light-fx { position: absolute; inset: 0; pointer-events: none; transition: background 2s ease; }
+.rain {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(115deg,
+    transparent 0 18px, rgba(170, 190, 210, 0.12) 18px 20px);
+  opacity: 0;
+  transition: opacity 1.5s ease;
+  pointer-events: none;
+}
+
+/* ─────────── 昼夜系统（body 类驱动） ─────────── */
+body.morning .sky {
+  background: linear-gradient(180deg, #ffd9a0, #ffb87a 60%, #e8935a);
+}
+body.day .sky {
+  background: linear-gradient(180deg, #8ec8ef, #cfe8ff 60%, #e8f2ff);
+}
+body.evening .sky {
+  background: linear-gradient(180deg, #f29a6b, #f7c9a0 55%, #4a3a5a);
+}
+body.night .sky {
+  background: linear-gradient(180deg, #1a2140, #2a3355 60%, #3a3a5a);
+}
+body.deep-night .sky {
+  background: linear-gradient(180deg, #0e1226, #161a33 70%, #1c2040);
+}
+body.rainy .rain { opacity: 1; }
+
+/* 室内光照 */
+body.day .room { filter: brightness(1.05) saturate(1.05); }
+body.evening .room { filter: brightness(0.85) sepia(0.2); }
+body.night .room { filter: brightness(0.6); }
+body.night .light-fx { background: radial-gradient(circle at 62% 46%, rgba(255, 200, 110, 0.28), transparent 55%); }
+body.deep-night .room { filter: brightness(0.42); }
+body.deep-night .light-fx { background: radial-gradient(circle at 62% 46%, rgba(255, 190, 100, 0.12), transparent 50%); }
+
+/* 灯（夜晚亮） */
+body.night .lamp-shade, body.deep-night .lamp-shade { background: rgba(255, 220, 150, 0.85); box-shadow: 0 0 26px rgba(255, 210, 130, 0.6); }
+body.morning .lamp-shade, body.day .lamp-shade { background: rgba(240, 200, 130, 0.35); }
+
+/* 太阳 / 月亮 */
+.sun { position: absolute; top: 8%; right: 10%; width: 9vmin; height: 9vmin; background: #ffe9a8; border-radius: 50%; box-shadow: 0 0 40px #ffd27a; opacity: 0; transition: opacity 2s ease; }
+.moon { position: absolute; top: 10%; right: 12%; width: 7vmin; height: 7vmin; background: #eef0f4; border-radius: 50%; box-shadow: 0 0 30px #dfe6ff; opacity: 0; transition: opacity 2s ease; }
+body.morning .sun, body.day .sun { opacity: 1; }
+body.night .moon, body.deep-night .moon { opacity: 1; }
+
+/* ─────────── 低调入口 ─────────── */
+.phone-entry, .observer-entry {
+  position: fixed;
+  z-index: 60;
+  border: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 22px;
+  transition: background 0.3s ease;
+}
+.phone-entry {
+  right: 18px;
+  bottom: 22px;
+  width: 52px;
+  height: 52px;
+}
+.observer-entry {
+  left: 10px;
+  top: 50%;
+  width: 26px;
+  height: 60px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+.phone-entry:hover, .observer-entry:hover { background: rgba(255, 255, 255, 0.22); }
+
+.entry-dot {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff5f6a;
+  box-shadow: 0 0 6px #ff5f6a;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.entry-dot.unread { opacity: 1; animation: pulse 1.6s infinite; }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+
+/* ─────────── Xiaoqi Phone ─────────── */
+.phone {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
+  background: rgba(10, 12, 18, 0.55);
+  backdrop-filter: blur(8px);
 }
+.phone.hidden { display: none; }
 
-.chat-header h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
+.phone-shell {
+  width: min(400px, 100vw);
+  height: min(720px, 100vh);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  border-radius: 34px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  color: #1f2937;
 }
-
-.chat-header p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 14px;
+.status-bar { height: 14px; background: #f5f6f8; flex: 0 0 auto; }
+.chat-header {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f5f6f8;
+  border-bottom: 1px solid #ececf0;
 }
-
-.status {
-  font-size: 13px;
-  color: #6b7280;
+.close-btn {
+  border: 0; background: transparent; font-size: 26px; color: #6b7280;
+  cursor: pointer; line-height: 1;
 }
-
-.life-card {
-  padding: 12px 24px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafafa;
+.chat-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, #ff9a8b, #ff6a88);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700;
 }
+.chat-meta { display: flex; flex-direction: column; }
+.chat-meta strong { font-size: 16px; }
+.chat-meta small { color: #34c759; font-size: 12px; }
 
-.life-card div {
-  padding: 10px 12px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-}
-
-.life-card span {
-  display: block;
-  color: #9ca3af;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.life-card strong {
-  font-size: 14px;
-  word-break: break-word;
-}
-
-.messages {
+.phone-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 16px 14px;
+  background: #fbfbfd;
 }
-
-.message {
-  display: flex;
-  margin-bottom: 16px;
-}
-
-.message.user {
-  justify-content: flex-end;
-}
-
-.bubble {
-  max-width: min(75%, 620px);
-  padding: 12px 15px;
+.phone-msg { display: flex; margin-bottom: 14px; }
+.phone-msg.user { justify-content: flex-end; }
+.phone-msg .bubble {
+  max-width: 78%;
+  padding: 10px 13px;
   border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.55;
   white-space: pre-wrap;
-  line-height: 1.6;
+  position: relative;
 }
-
-.message.user .bubble {
-  background: #2f6fed;
-  color: white;
-  border-bottom-right-radius: 5px;
+.phone-msg.user .bubble { background: #3b82f6; color: #fff; border-bottom-right-radius: 4px; }
+.phone-msg.assistant .bubble { background: #eef0f4; color: #1f2937; border-bottom-left-radius: 4px; }
+.phone-msg .meta {
+  font-size: 11px; color: #9aa0ab; margin-top: 4px;
+  display: flex; gap: 6px; justify-content: flex-end;
 }
-
-.message.assistant .bubble {
-  background: #f1f1f1;
-  color: #222;
-  border-bottom-left-radius: 5px;
-}
+.phone-msg.user .meta { justify-content: flex-start; }
+.phone-msg .meta .read { color: #34c759; }
 
 .composer {
-  padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  background: #fff;
+  border-top: 1px solid #ececf0;
   display: flex;
-  gap: 10px;
-  background: white;
+  gap: 8px;
+  align-items: center;
 }
-
-.composer textarea {
+.composer .mic, .composer .send {
+  border: 0; border-radius: 50%;
+  width: 42px; height: 42px;
+  font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.composer .mic { background: #f0f1f5; color: #9aa0ab; }
+.composer .mic:disabled { opacity: 0.5; }
+.composer input {
   flex: 1;
-  resize: none;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
-  padding: 12px 14px;
+  border: 1px solid #e3e5ea;
+  border-radius: 22px;
+  padding: 10px 15px;
   font: inherit;
-  min-height: 46px;
-  max-height: 140px;
+  font-size: 15px;
+  outline: none;
 }
+.composer input:focus { border-color: #3b82f6; }
+.composer .send { background: #3b82f6; color: #fff; }
+.composer .send:disabled { opacity: 0.5; }
 
-.composer button {
+/* ─────────── Observer 心灵观察站 ─────────── */
+.observer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(6px);
+}
+.observer.hidden { display: none; }
+.observer-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(360px, 88vw);
+  background: #151826;
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.4);
+}
+.observer-title {
+  padding: 22px 20px 14px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ff9a8b;
+}
+.observer-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+  gap: 2px;
+}
+.observer-nav button {
+  text-align: left;
+  padding: 12px 14px;
   border: 0;
-  border-radius: 14px;
-  padding: 0 20px;
-  background: #2f6fed;
-  color: white;
-  font-weight: 600;
+  background: transparent;
+  color: #aab0c0;
+  font: inherit;
+  font-size: 15px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.observer-nav button:hover { background: rgba(255, 255, 255, 0.06); }
+.observer-nav button.active { background: rgba(255, 120, 130, 0.14); color: #fff; }
+.observer-content { flex: 1; overflow-y: auto; padding: 14px 18px; font-size: 14px; line-height: 1.7; }
+.observer-close {
+  margin: 12px;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #aab0c0;
+  font: inherit;
   cursor: pointer;
 }
 
-.composer button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
+/* 观察站内容组件 */
+.obs-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.obs-card h4 { color: #ff9a8b; font-size: 14px; margin-bottom: 8px; }
+.obs-row { display: flex; justify-content: space-between; padding: 5px 0; color: #c5cad6; }
+.obs-row b { color: #fff; font-weight: 600; }
+.obs-bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; margin-top: 6px; overflow: hidden; }
+.obs-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff9a8b, #ff6a88); transition: width 0.6s ease; }
+.obs-diary { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.obs-diary .date { color: #8a90a2; font-size: 12px; margin-bottom: 6px; }
+.obs-memory { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.obs-memory .tag { display: inline-block; font-size: 11px; color: #ff9a8b; background: rgba(255,120,130,0.12); padding: 2px 8px; border-radius: 8px; margin-bottom: 6px; }
+.obs-empty { color: #8a90a2; text-align: center; padding: 30px 0; font-size: 13px; }
 
+/* 手机端适配 */
 @media (max-width: 700px) {
-  .life-card {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .bubble {
-    max-width: 88%;
-  }
-
-  .chat-header {
-    padding: 16px;
-  }
-
-  .messages {
-    padding: 16px;
-  }
+  .phone-shell { border-radius: 0; height: 100vh; }
+  .observer-panel { width: 84vw; }
+  .phone-entry { right: 14px; bottom: 16px; }
 }

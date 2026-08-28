@@ -2,32 +2,49 @@
 
 小七 —— 拥有身体、感知、记忆、情绪、关系、主动行为和长期成长能力的 AI 生命体核心。
 
-## 架构总览
+> **打开小七，不是打开一个 AI，而是推门走进她的生活。**
+
+## 产品形态（Web UI）
+
+小七是一款 **AI 女友软件**，不是聊天机器人。打开页面看到的是**小七正在自己的生活里**，而不是一个对话框。
+
+| 界面 | 说明 |
+|------|------|
+| 🌏 **生活世界 ZERO UI** | 全屏纯净房间观察窗口：**无任何文字 / HUD / 按钮 / 交互物件**。只有小七、房间、光影、天气、动作、生活痕迹。昼夜系统真实驱动光线与她的作息（起床→上班→回家→做饭→休息→睡觉） |
+| 📱 **小七手机** | 右下角低调手机入口 → 拟真微信式聊天：联系人"小七"、气泡、时间、已读、语音按钮（开发中）、主动消息通知 |
+| 🧠 **心灵观察站** | 左边缘低调入口 → 隐藏数据层：情绪 / 神经化学 / 关系 / 日记 / 回忆 / 日程，全部接**真实核心数据** |
+
+核心原则：**Avatar（房间表现）不是大脑，只表达不解释**。状态通过行为表现（开心时动作轻快、孤独时沙发发呆），数字只在心灵观察站可见。
+
+## 架构
 
 ```
-                用户
-                 │
-        ┌────────┴────────┐
-        │  感知系统        │   ← 阶段2：Open-LLM-VTuber（语音/视觉）
-        │  Voice / Vision │
-        └────────┬────────┘
-                 │
-        ┌────────┴────────┐
-        │  生命核心        │   ← 本项目（xiaoqi-agent）
-        │  Memory/Emotion │
-        │  Neurochemical  │
-        │  Diary/Proactive│
-        └────────┬────────┘
-                 │
-        ┌────────┴────────┐
-        │  身体表现        │   ← 阶段3：Soul-of-Waifu（VRM/表情/桌宠）
-        │  Avatar         │
-        └────────┬────────┘
-                 │
-               用户
+用户 → 小七手机(Web API) → WebRuntime → xiaoqi-bus → 小七核心
+                                                    ├── LifeLoop
+                                                    ├── Memory 2.0
+                                                    ├── Emotion / Neurochemical
+                                                    ├── Relationship / Motivation
+                                                    ├── Diary / Schedule
+                                                    └── Proactive
+                                        ↓ AvatarEvent (WebSocket, 可选)
+                              Soul-of-Waifu / Live2D / VRM
 ```
 
-三个系统通过 `xiaoqi-bus` 事件协议解耦，未来可无痛替换 Unity / Unreal / 网页 / 手机端。
+## 启动
+
+```bash
+pip install -r requirements.txt
+python web_server.py        # 打开 http://127.0.0.1:8000
+```
+
+环境变量：`XIAOQI_WEB_PORT`(8000)、`XIAOQI_SIM_MINUTES_PER_REAL_SECOND`(60)、`XIAOQI_LLM_API_KEY`。
+
+## 测试
+
+```bash
+python -m pytest            # 292 passed
+python -m life_lab.runner   # Life Lab 离线生命实验（001-004, 008-010）
+```
 
 ## 3.0.1 稳定化（核心生命系统重构）
 
@@ -82,14 +99,6 @@ xiaoqi-agent/
 pip install -r requirements.txt
 python -m pytest
 ```
-
-## 阶段路线
-
-- **阶段1（已完成）**：升级 xiaoqi-agent 为生命核心 —— Memory 2.0 / Emotion / Neurochemical / Diary / Proactive
-- **阶段1.5（已完成）**：核心生命系统稳定化 —— 双时间尺度积分 / EMA 数值一致 / 关系 2.0 / 动机层 / 记忆生命周期 / WAL + 版本 / LLM 降级 / xiaoqi-bus
-- **阶段1.6（已完成）**：核心调试 + Life Lab —— 修复关系衰减 bug / 失联链路(PROLONGED_ABSENCE) / 指数退避主动 / get_state 快照
-- **阶段2**：接入 Open-LLM-VTuber（实时语音/VAD/Whisper/打断/TTS/视觉）—— 实现其 `AgentInterface`
-- **阶段3**：接入 Soul-of-Waifu（VRM 身体/表情/动作/桌宠）—— 通过 `Actions.expressions` 表情通道
 
 ## Life Lab 离线生命实验
 

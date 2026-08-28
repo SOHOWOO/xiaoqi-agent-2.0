@@ -2,40 +2,107 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>小七</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <main class="chat-shell">
-    <header class="chat-header">
-      <div>
-        <h1>小七</h1>
-        <p>你的 AI 女友 · 记得你，也有自己的生活</p>
+<body class="world-init">
+
+  <!-- ═══════════ Living World · ZERO UI ═══════════
+       全屏纯净观察窗口，无文字 / 无 HUD / 无按钮 / 无交互物件。
+       只有：小七、房间、光影、天气、动作、生活痕迹。 -->
+  <div id="world" class="world">
+    <div class="scene">
+      <div class="sky"></div>
+      <div class="sun"></div>
+      <div class="moon"></div>
+      <div class="window-frame">
+        <div class="cityscape"></div>
       </div>
-      <div id="status" class="status">连接中…</div>
-    </header>
+      <div class="room">
+        <div class="wall"></div>
+        <div class="floor"></div>
 
-    <section class="life-card">
-      <div><span>时间</span><strong id="life-time">-</strong></div>
-      <div><span>活动</span><strong id="life-activity">-</strong></div>
-      <div><span>精力</span><strong id="life-energy">-</strong></div>
-      <div><span>疲劳</span><strong id="life-fatigue">-</strong></div>
-      <div><span>虚拟生活记忆</span><strong id="virtual-memory-count">0</strong></div>
-    </section>
+        <div class="furniture">
+          <div class="sofa"><span class="sofa-arm a"></span><span class="sofa-seat"></span><span class="sofa-arm b"></span></div>
+          <div class="table"><span class="table-top"></span><span class="table-leg"></span></div>
+          <div class="bed"><span class="pillow"></span><span class="blanket"></span></div>
+          <div class="lamp"><span class="lamp-stand"></span><span class="lamp-shade"></span></div>
+          <div class="plant"><span class="pot"></span><span class="leaf l1"></span><span class="leaf l2"></span><span class="leaf l3"></span></div>
+          <div class="frame-on-wall"></div>
+        </div>
 
-    <section id="messages" class="messages"></section>
+        <div id="xiaoqi" class="xiaoqi stand neutral">
+          <div class="shadow"></div>
+          <div class="figure">
+            <div class="head">
+              <div class="hair"></div>
+              <div class="face">
+                <span class="eye left"></span>
+                <span class="eye right"></span>
+                <span class="mouth"></span>
+                <span class="blush left"></span>
+                <span class="blush right"></span>
+              </div>
+            </div>
+            <div class="body"></div>
+            <div class="arm left"></div>
+            <div class="arm right"></div>
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+          <div class="phone-in-hand"></div>
+        </div>
 
-    <form id="chat-form" class="composer">
-      <textarea
-        id="message"
-        rows="1"
-        placeholder="和小七说点什么…"
-        autocomplete="off"
-      ></textarea>
-      <button id="send" type="submit">发送</button>
-    </form>
-  </main>
+        <div class="light-fx"></div>
+        <div class="rain"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 小七手机入口（低调） ═══════════ -->
+  <button id="phone-entry" class="phone-entry" aria-label="小七手机">
+    <span class="entry-dot"></span>
+  </button>
+
+  <!-- ═══════════ Xiaoqi Phone ═══════════ -->
+  <div id="phone" class="phone hidden">
+    <div class="phone-shell">
+      <div class="status-bar"></div>
+      <div class="chat-header">
+        <button id="phone-close" class="close-btn" aria-label="收起">‹</button>
+        <div class="chat-avatar">小</div>
+        <div class="chat-meta">
+          <strong>小七</strong>
+          <small id="phone-status">在线</small>
+        </div>
+      </div>
+      <div id="phone-messages" class="phone-messages"></div>
+      <div class="composer">
+        <button id="mic-btn" class="mic" title="语音通话 · 开发中" disabled>🎤</button>
+        <input id="phone-input" placeholder="发消息…" autocomplete="off">
+        <button id="send-btn" class="send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 心灵观察站入口（左边缘低调） ═══════════ -->
+  <button id="observer-entry" class="observer-entry" aria-label="心灵观察站">✦</button>
+
+  <div id="observer" class="observer hidden">
+    <aside class="observer-panel">
+      <div class="observer-title">小七的心灵</div>
+      <nav class="observer-nav">
+        <button data-view="emotion" class="active">💗 情绪</button>
+        <button data-view="relation">❤️ 关系</button>
+        <button data-view="diary">📖 今日日记</button>
+        <button data-view="memory">🧠 我们的回忆</button>
+        <button data-view="schedule">📅 她的日程</button>
+      </nav>
+      <div id="observer-content" class="observer-content"></div>
+      <button id="observer-close" class="observer-close">收起</button>
+    </aside>
+  </div>
 
   <script src="/app.js"></script>
 </body>
