@@ -368,6 +368,83 @@ class WebRuntime:
                 "schedule": schedule,
             }
 
+    def schedule_data(self) -> dict:
+        """日程数据（真实 ScheduleEngine）。"""
+
+        with self._lock:
+            return self._schedule_snapshot()
+
+    def memory_data(self, limit: int = 50) -> list[dict]:
+        """记忆数据（真实 MemoryStore）。"""
+
+        with self._lock:
+            return [
+                {
+                    "type": memory.memory_type.value,
+                    "content": memory.content,
+                    "created_at": (
+                        memory.created_at.isoformat()
+                    ),
+                }
+                for memory in (
+                    self.life_loop
+                    .memory_store
+                    .recent(limit=limit)
+                )
+            ]
+
+    def settings_data(self) -> dict:
+        """后端设置（真实值，前端偏好另存 localStorage）。"""
+
+        with self._lock:
+            return {
+                "simulation_minutes_per_real_second": (
+                    self.simulation_minutes_per_real_second
+                ),
+                "allow_proactive": True,
+                "simulated_time": (
+                    self.life_loop.current_time.isoformat()
+                ),
+            }
+
+    # 房间物件交互 -> 行为建议（Web 层）。
+    # 未来接 LifeLoop 行为调度 / VRM moveTo 的挂载点。
+    ROOM_BEHAVIORS = {
+        ("move_to", "bed"): "resting",
+        ("move_to", "desk"): "reading",
+        ("move_to", "sofa"): "relaxing",
+        ("move_to", "window"): "thinking",
+        ("interact", "xiaoqi"): "talking",
+        ("toggle", "lamp"): "idle",
+    }
+
+    def handle_action(self, action: dict) -> dict:
+        """处理一次房间交互意图（不直接改写核心状态机）。"""
+
+        with self._lock:
+            name = action.get("action")
+            target = action.get("target")
+
+            behavior = self.ROOM_BEHAVIORS.get(
+                (name, target),
+                "idle",
+            )
+
+            return {
+                "accepted": True,
+                "behavior": behavior,
+                "target": target,
+                "simulated_time": (
+                    self.life_loop
+                    .current_time
+                    .isoformat()
+                ),
+                "hook": (
+                    "web-layer behavior; "
+                    "future: LifeLoop scheduler / VRM moveTo"
+                ),
+            }
+
     def _schedule_snapshot(self) -> dict:
         """返回当前作息信息。"""
 

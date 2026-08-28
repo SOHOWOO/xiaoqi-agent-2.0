@@ -105,6 +105,13 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path.startswith("/avatar/"):
+            self._send_file(
+                WEB_DIR / path.lstrip("/"),
+                "application/javascript; charset=utf-8",
+            )
+            return
+
 
         if path == "/api/proactive":
             RUNTIME.advance()
@@ -141,6 +148,30 @@ class WebHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/schedule":
+            RUNTIME.advance()
+
+            self._send_json(
+                RUNTIME.schedule_data()
+            )
+            return
+
+        if path == "/api/memory":
+            RUNTIME.advance()
+
+            self._send_json(
+                {"memories": RUNTIME.memory_data()}
+            )
+            return
+
+        if path == "/api/settings":
+            RUNTIME.advance()
+
+            self._send_json(
+                RUNTIME.settings_data()
+            )
+            return
+
         self.send_error(
             HTTPStatus.NOT_FOUND,
             "Not found",
@@ -149,7 +180,7 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urlparse(self.path).path
 
-        if path != "/api/chat":
+        if path not in ("/api/chat", "/api/action"):
             self.send_error(
                 HTTPStatus.NOT_FOUND,
                 "Not found",
@@ -195,6 +226,12 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         message = payload.get("message")
+
+        if path == "/api/action":
+            self._send_json(
+                RUNTIME.handle_action(payload)
+            )
+            return
 
         if (
             not isinstance(message, str)

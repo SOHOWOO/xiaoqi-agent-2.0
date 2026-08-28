@@ -1,47 +1,121 @@
 /* ═══════════════════════════════════════════════════
-   小七 · 前端逻辑
-   世界驱动 / 小七手机 / 心灵观察站
+   小七 · 虚拟卧室 前端逻辑
+   房间驱动 / 物件交互 / 气泡对话 / 主动行为 / HUD / 设置
    ═══════════════════════════════════════════════════ */
 
-const worldEl = document.getElementById("world");
-const xiaoqiEl = document.getElementById("xiaoqi");
+import AvatarAdapter from "./avatar/avatar_adapter.js";
+import Avatar2D from "./avatar/avatar_2d.js";
+
+/* 选择 2D 实现；未来切 avatar_vrm.js */
+const avatar = new Avatar2D();
+
+/* ─────────── 元素 ─────────── */
 const bodyEl = document.body;
+const roomEl = document.getElementById("room");
+const avatarMount = document.getElementById("avatar-mount");
+const interactTip = document.getElementById("interact-tip");
 
-const phoneEntry = document.getElementById("phone-entry");
-const phoneEl = document.getElementById("phone");
-const phoneMessagesEl = document.getElementById("phone-messages");
-const phoneInput = document.getElementById("phone-input");
-const sendBtn = document.getElementById("send-btn");
-const phoneStatusEl = document.getElementById("phone-status");
-const phoneClose = document.getElementById("phone-close");
+const hudEl = document.getElementById("hud");
+const hudEmotion = document.getElementById("hud-emotion");
+const hudEnergy = document.getElementById("hud-energy");
+const hudFatigue = document.getElementById("hud-fatigue");
+const hudActivity = document.getElementById("hud-activity");
 
-const observerEntry = document.getElementById("observer-entry");
-const observerEl = document.getElementById("observer");
-const observerContent = document.getElementById("observer-content");
-const observerClose = document.getElementById("observer-close");
+const chatBtn = document.getElementById("chat-btn");
+const relationBtn = document.getElementById("relation-btn");
+const scheduleBtn = document.getElementById("schedule-btn");
+const settingsBtn = document.getElementById("settings-btn");
+const voiceBtn = document.getElementById("voice-btn");
+
+const chatDrawer = document.getElementById("chat-drawer");
+const chatHistory = document.getElementById("chat-history");
+const chatInput = document.getElementById("chat-input");
+const chatSend = document.getElementById("chat-send");
+const chatClose = document.getElementById("chat-close");
+
+const relationPanel = document.getElementById("relation-panel");
+const relationContent = document.getElementById("relation-content");
+const relationClose = document.getElementById("relation-close");
+
+const schedulePanel = document.getElementById("schedule-panel");
+const scheduleContent = document.getElementById("schedule-content");
+const scheduleClose = document.getElementById("schedule-close");
+
+const settingsPanel = document.getElementById("settings-panel");
+const settingsClose = document.getElementById("settings-close");
+const hudToggle = document.getElementById("hud-toggle");
+const setSpeed = document.getElementById("set-speed");
+
+/* ─────────── 设置（localStorage） ─────────── */
+const SETTINGS_KEY = "xiaoqi_room_settings";
+
+const defaultSettings = {
+  name: "小七",
+  user_name: "主人",
+  show_hud: true,
+  allow_proactive: true,
+  night_mode: false,
+  sound: false,
+};
+
+function loadSettings() {
+  try {
+    return { ...defaultSettings, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
+  } catch {
+    return { ...defaultSettings };
+  }
+}
+const settings = loadSettings();
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function applySettings() {
+  document.getElementById("set-name").value = settings.name;
+  document.getElementById("set-user-name").value = settings.user_name;
+  document.getElementById("set-hud").checked = settings.show_hud;
+  document.getElementById("set-proactive").checked = settings.allow_proactive;
+  document.getElementById("set-night").checked = settings.night_mode;
+  document.getElementById("set-sound").checked = settings.sound;
+
+  hudEl.classList.toggle("hidden", !settings.show_hud);
+  bodyEl.classList.toggle("night-mode", settings.night_mode);
+}
 
 /* ─────────── 状态 → 表现映射 ─────────── */
 
-const ACTIVITY_POSE = {
-  sleep: "sleep",
-  pre_sleep: "sit",
-  morning_prep: "stand",
-  commute: "leave",
-  morning_clinic: "leave",
-  afternoon_clinic: "leave",
-  commute_grocery: "leave",
-  lunch_break: "sit",
-  cooking_dinner: "stand",
-  home_leisure: "sit",
-  home_rest: "sit",
+const ACTIVITY_AVATAR = {
+  sleep: "sleeping",
+  pre_sleep: "relaxing",
+  morning_prep: "idle",
+  commute: "idle",
+  morning_clinic: "idle",
+  afternoon_clinic: "idle",
+  commute_grocery: "idle",
+  lunch_break: "relaxing",
+  cooking_dinner: "idle",
+  home_leisure: "relaxing",
+  home_rest: "relaxing",
+};
+
+const ACTIVITY_POSITION = {
+  sleep: "bed",
+  pre_sleep: "sofa",
+  morning_prep: "center",
+  commute: "window",
+  lunch_break: "sofa",
+  cooking_dinner: "center",
+  home_leisure: "sofa",
+  home_rest: "sofa",
 };
 
 const EMOTION_CLASS = {
-  happy: "smile",
+  happy: "happy",
   excited: "excited",
-  calm: "neutral",
+  calm: "idle",
   lonely: "sad",
-  anxious: "worried",
+  anxious: "think",
   angry: "angry",
 };
 
@@ -58,145 +132,182 @@ function getPeriodClass(timeStr) {
 function applyWorldState(lifeState) {
   if (!lifeState) return;
 
-  bodyEl.className = getPeriodClass(lifeState.current_time);
+  let period = getPeriodClass(lifeState.current_time);
+  if (settings.night_mode && period === "day") period = "night";
+  bodyEl.className = period;
 
   const activity = lifeState.current_activity || "";
-  const pose = ACTIVITY_POSE[activity] || "stand";
 
-  xiaoqiEl.classList.remove(
-    "stand", "sit", "sleep", "leave", "onphone",
-    "slow", "smile", "sad", "angry", "excited", "worried", "neutral",
+  avatar.setState(
+    EMOTION_CLASS[lifeState.dominant_emotion] || "idle"
   );
 
-  xiaoqiEl.classList.add(pose);
+  const state = ACTIVITY_AVATAR[activity];
+  if (state) avatar.play(state);
 
-  if (activity === "home_leisure") {
-    xiaoqiEl.classList.add("onphone");
-  }
+  const pos = ACTIVITY_POSITION[activity];
+  if (pos) avatar.moveTo(pos);
 
   const energy = lifeState.energy ?? 1;
-  if (energy < 0.35) {
-    xiaoqiEl.classList.add("slow");
-  }
+  if (energy < 0.35) avatar.setState("tired");
 
-  const dominant = lifeState.dominant_emotion || "calm";
-  xiaoqiEl.classList.add(EMOTION_CLASS[dominant] || "neutral");
+  hudEmotion.textContent =
+    { happy: "开心", calm: "平静", lonely: "孤独", excited: "兴奋", anxious: "焦虑", angry: "生气" }[lifeState.dominant_emotion]
+    || lifeState.dominant_emotion || "-";
+  hudEnergy.textContent = `${Math.round((energy ?? 0) * 100)}%`;
+  hudFatigue.textContent = `${Math.round((lifeState.fatigue ?? 0) * 100)}%`;
+  hudActivity.textContent = lifeState.current_activity || "-";
 }
 
-/* ─────────── 聊天历史（localStorage） ─────────── */
+/* ─────────── 物件交互 → /api/action ─────────── */
 
-const HISTORY_KEY = "xiaoqi_phone_history";
-const MAX_HISTORY = 200;
+function showTip(text) {
+  interactTip.textContent = text;
+  interactTip.classList.remove("hidden");
+  clearTimeout(showTip._timer);
+  showTip._timer = setTimeout(() => interactTip.classList.add("hidden"), 2600);
+}
+
+async function sendAction(name, target) {
+  try {
+    const res = await fetch("/api/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: name, target }),
+    });
+    const data = await res.json();
+
+    if (target && target !== "lamp") {
+      avatar.moveTo(target);
+      avatar.play(data.behavior);
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function clickObject(target) {
+  const labels = {
+    bed: "让她去休息",
+    desk: "让她去阅读",
+    sofa: "让她去放松",
+    window: "窗外",
+    lamp: "台灯",
+    xiaoqi: "小七",
+  };
+
+  if (target === "window") {
+    showTip("窗外 · 时间与天气会随时间变化");
+    return;
+  }
+
+  if (target === "lamp") {
+    const night = bodyEl.classList.contains("night") || bodyEl.classList.contains("deep-night");
+    showTip(night ? "台灯已关闭" : "台灯已打开");
+    return;
+  }
+
+  await sendAction("move_to", target);
+  showTip(`${labels[target]} · ${behText(target)}`);
+}
+
+function behText(target) {
+  return {
+    bed: "休息中", desk: "阅读中", sofa: "放松中",
+  }[target] || "";
+}
+
+document.querySelectorAll(".obj[data-target]").forEach((el) => {
+  el.addEventListener("click", () => clickObject(el.dataset.target));
+});
+
+avatarMount.addEventListener("click", async () => {
+  await sendAction("interact", "xiaoqi");
+  showTip("小七：来啦，怎么了？");
+});
+
+roomEl.addEventListener("click", (event) => {
+  if (!event.target.closest(".obj") && !event.target.closest("#avatar-mount")) {
+    avatar.moveTo("center");
+  }
+});
+
+/* ─────────── 气泡对话 ─────────── */
+
+const HISTORY_KEY = "xiaoqi_room_history";
 
 function loadHistory() {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+  catch { return []; }
 }
-
-function saveHistory(history) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-}
+function saveHistory(h) { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
 
 function formatTime(iso) {
   try {
-    return new Date(iso).toLocaleTimeString("zh-CN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+    return new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
 }
 
-function renderMessage(msg) {
+function renderDrawerMessage(msg) {
   const wrapper = document.createElement("div");
-  wrapper.className = `phone-msg ${msg.role}`;
-
+  wrapper.className = `chat-msg ${msg.role}`;
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   bubble.textContent = msg.text;
   wrapper.appendChild(bubble);
-
   const meta = document.createElement("div");
   meta.className = "meta";
-  meta.innerHTML =
-    `<span>${formatTime(msg.time)}</span>` +
-    (msg.role === "user"
-      ? '<span class="read">已读 ✓</span>'
-      : "");
-
+  meta.innerHTML = `<span>${formatTime(msg.time)}</span>` + (msg.role === "user" ? '<span class="read">已读 ✓</span>' : "");
   wrapper.appendChild(meta);
-  phoneMessagesEl.appendChild(wrapper);
+  chatHistory.appendChild(wrapper);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
 function renderHistory() {
-  phoneMessagesEl.innerHTML = "";
-  loadHistory().forEach(renderMessage);
-  scrollPhone();
+  chatHistory.innerHTML = "";
+  loadHistory().forEach(renderDrawerMessage);
 }
 
-function scrollPhone() {
-  phoneMessagesEl.scrollTop = phoneMessagesEl.scrollHeight;
-}
-
-function appendChat(role, text, time) {
+function appendMessage(role, text, time) {
   const history = loadHistory();
-  history.push({
-    role,
-    text,
-    time: time || new Date().toISOString(),
-  });
-  if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
+  history.push({ role, text, time: time || new Date().toISOString() });
+  if (history.length > 200) history.splice(0, history.length - 200);
   saveHistory(history);
-  renderMessage({ role, text, time: time || new Date().toISOString() });
-  scrollPhone();
+  renderDrawerMessage({ role, text, time: time || new Date().toISOString() });
 }
 
-/* ─────────── 主动消息 → 手机通知 ─────────── */
+/* ─────────── 小七说话（气泡 + 抽屉） ─────────── */
 
-let unreadCount = 0;
-
-function notifyProactive(content) {
-  unreadCount += 1;
-  phoneEntry.querySelector(".entry-dot").classList.add("unread");
-
-  if (phoneEl.classList.contains("hidden")) {
-    return;
-  }
-  appendChat("assistant", content, new Date().toISOString());
+function xiaoqiSpeak(text) {
+  avatar.talk();
+  avatar.showBubble(text);
+  appendMessage("assistant", text, new Date().toISOString());
+  setTimeout(() => { avatar.stopTalking(); }, Math.min(text.length * 120, 6000));
+  setTimeout(() => avatar.hideBubble(), Math.min(text.length * 120, 6000) + 2500);
 }
 
-/* ─────────── API ─────────── */
+/* ─────────── 主动行为 ─────────── */
 
-async function loadStatus() {
-  try {
-    const res = await fetch("/api/status");
-    const data = await res.json();
-    applyWorldState(data.life_state);
-    phoneStatusEl.textContent = "在线";
-  } catch {
-    phoneStatusEl.textContent = "离线";
-  }
-}
-
-async function loadProactive() {
+async function pollProactive() {
+  if (!settings.allow_proactive) return;
   try {
     const res = await fetch("/api/proactive");
     if (!res.ok) return;
     const data = await res.json();
     (data.messages || []).forEach((msg) => {
-      if (msg.content) notifyProactive(msg.content);
+      if (msg.content) {
+        avatar.setState("proactive");
+        setTimeout(() => xiaoqiSpeak(msg.content), 500);
+      }
     });
-  } catch {
-    /* 静默 */
-  }
+  } catch { /* 静默 */ }
 }
 
+/* ─────────── 发送消息 ─────────── */
+
 async function sendMessage(text) {
-  sendBtn.disabled = true;
+  chatSend.disabled = true;
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -204,216 +315,132 @@ async function sendMessage(text) {
       body: JSON.stringify({ message: text }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `HTTP ${res.status}`);
-    }
-    appendChat("assistant", data.reply, new Date().toISOString());
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    xiaoqiSpeak(data.reply);
     if (data.life_state) applyWorldState(data.life_state);
-    phoneStatusEl.textContent = "在线";
   } catch (error) {
-    appendChat("assistant", `（小七暂时没回应：${error.message}）`);
+    xiaoqiSpeak(`（小七暂时没回应：${error.message}）`);
   } finally {
-    sendBtn.disabled = false;
-    phoneInput.focus();
+    chatSend.disabled = false;
+    chatInput.focus();
   }
 }
 
-/* ─────────── 心灵观察站 ─────────── */
+function submitChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  appendMessage("user", text, new Date().toISOString());
+  chatInput.value = "";
+  sendMessage(text);
+}
 
-let observerData = null;
+/* ─────────── 面板数据（真实 API） ─────────── */
 
-async function loadObserver() {
+function pct(v) { return Math.round((v ?? 0) * 100); }
+function bar(v, label) {
+  return `<div class="obs-row"><span>${label}</span><b>${pct(v)}%</b></div><div class="obs-bar"><i style="width:${pct(v)}%"></i></div>`;
+}
+
+async function openRelation() {
+  relationPanel.classList.remove("hidden");
   try {
     const res = await fetch("/api/observer");
-    if (!res.ok) return;
-    observerData = await res.json();
-    renderObserverView("emotion");
-  } catch {
-    observerContent.innerHTML =
-      '<div class="obs-empty">暂时无法连接小七的心灵</div>';
-  }
-}
-
-function pct(value) {
-  return Math.round((value ?? 0) * 100);
-}
-
-function bar(value, label) {
-  return (
-    `<div class="obs-row"><span>${label}</span><b>${pct(value)}%</b></div>` +
-    `<div class="obs-bar"><i style="width:${pct(value)}%"></i></div>`
-  );
-}
-
-function renderObserverView(view) {
-  if (!observerData) return;
-  const d = observerData;
-  let html = "";
-
-  if (view === "emotion") {
-    const e = d.emotion.current;
-    const moodLabel = {
-      happy: "开心", calm: "平静", lonely: "孤独",
-      excited: "兴奋", anxious: "焦虑", angry: "生气",
-    }[d.emotion.dominant] || d.emotion.dominant;
-
-    html += `<div class="obs-card"><h4>💗 当前情绪 · ${moodLabel}</h4>`;
-    for (const [k, v] of Object.entries(e)) {
-      const label = { happy: "开心", calm: "平静", lonely: "孤独", excited: "兴奋", anxious: "焦虑", angry: "生气" }[k] || k;
-      html += bar(v, label);
-    }
-    html += "</div>";
-
-    html += `<div class="obs-card"><h4>🧪 神经化学</h4>`;
-    const neuroLabel = { dopamine: "多巴胺", serotonin: "血清素", oxytocin: "催产素", cortisol: "皮质醇", endorphin: "内啡肽", noradrenaline: "去甲肾上腺素" };
-    for (const [k, v] of Object.entries(d.neurochemical)) {
-      html += bar(v, neuroLabel[k] || k);
-    }
-    html += "</div>";
-  }
-
-  if (view === "relation") {
+    const d = await res.json();
     const r = d.relationship;
-    html += `<div class="obs-card"><h4>❤️ 与小七的关系</h4>`;
-    html += bar(r.trust, "信任");
-    html += bar(r.attachment, "依恋");
-    html += bar(r.familiarity, "熟悉");
-    html += bar(r.shared_experience, "共同经历");
-    html += `<div class="obs-row"><span>阶段</span><b>${
-      r.stage ?? "陌生"
-    }</b></div>`;
-    html += `<div class="obs-row"><span>互动次数</span><b>${r.interaction_count ?? 0}</b></div>`;
-    html += "</div>";
+    relationContent.innerHTML =
+      `<div class="obs-row"><span>信任</span><b>${pct(r.trust)}%</b></div><div class="obs-bar"><i style="width:${pct(r.trust)}%"></i></div>` +
+      `<div class="obs-row"><span>依恋</span><b>${pct(r.attachment)}%</b></div><div class="obs-bar"><i style="width:${pct(r.attachment)}%"></i></div>` +
+      `<div class="obs-row"><span>熟悉</span><b>${pct(r.familiarity)}%</b></div><div class="obs-bar"><i style="width:${pct(r.familiarity)}%"></i></div>` +
+      `<div class="obs-row"><span>共同经历</span><b>${pct(r.shared_experience)}%</b></div><div class="obs-bar"><i style="width:${pct(r.shared_experience)}%"></i></div>` +
+      `<div class="obs-row"><span>阶段</span><b>${r.stage || "陌生"}</b></div>` +
+      `<div class="obs-row"><span>互动次数</span><b>${r.interaction_count || 0}</b></div>`;
+  } catch {
+    relationContent.innerHTML = '<div class="obs-row">无法连接</div>';
   }
-
-  if (view === "diary") {
-    if (!d.diaries.length) {
-      html = '<div class="obs-empty">小七还没有写下日记</div>';
-    } else {
-      html = d.diaries.map((entry) =>
-        `<div class="obs-diary">
-           <div class="date">📖 ${entry.date} · ${
-             (entry.mood_tags || []).join(" / ") || "平静"
-           }</div>
-           <div>${escapeHtml(entry.content)}</div>
-         </div>`
-      ).join("");
-    }
-  }
-
-  if (view === "memory") {
-    if (!d.memories.length) {
-      html = '<div class="obs-empty">还没有共同的回忆</div>';
-    } else {
-      html = d.memories.map((m) =>
-        `<div class="obs-memory">
-           <span class="tag">${typeLabel(m.type)}</span>
-           <div>${escapeHtml(m.content)}</div>
-         </div>`
-      ).join("");
-    }
-  }
-
-  if (view === "schedule") {
-    const s = d.schedule;
-    html += `<div class="obs-card"><h4>📅 她的日程</h4>`;
-    html += `<div class="obs-row"><span>当前</span><b>${
-      s.current_activity || "—"
-    }</b></div>`;
-    html += "</div>";
-    html += (s.today || []).map((slot) =>
-      `<div class="obs-row"><span>${slot.start} - ${slot.end}</span><b>${slot.name}</b></div>`
-    ).join("");
-  }
-
-  observerContent.innerHTML = html;
 }
 
-function typeLabel(type) {
-  return {
-    canonical: "真实记忆",
-    interaction: "互动",
-    virtual_life: "生活",
-    episodic: "情景",
-    semantic: "事实",
-    relationship: "关系",
-    diary: "日记",
-  }[type] || type;
+async function openSchedule() {
+  schedulePanel.classList.remove("hidden");
+  try {
+    const res = await fetch("/api/schedule");
+    const d = await res.json();
+    const slots = d.today || [];
+    scheduleContent.innerHTML =
+      `<div class="obs-row"><span>当前</span><b>${d.current_activity || "—"}</b></div>` +
+      slots.map((s) => `<div class="obs-row"><span>${s.start} - ${s.end}</span><b>${s.name}</b></div>`).join("");
+  } catch {
+    scheduleContent.innerHTML = '<div class="obs-row">无法连接</div>';
+  }
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+async function loadSettingsBackend() {
+  try {
+    const res = await fetch("/api/settings");
+    const d = await res.json();
+    setSpeed.textContent = d.simulation_minutes_per_real_second ?? "-";
+  } catch { /* 忽略 */ }
+}
+
+/* ─────────── 状态轮询 ─────────── */
+
+async function loadStatus() {
+  try {
+    const res = await fetch("/api/status");
+    const data = await res.json();
+    applyWorldState(data.life_state);
+  } catch { /* 忽略 */ }
 }
 
 /* ─────────── 事件绑定 ─────────── */
 
-phoneEntry.addEventListener("click", () => {
-  phoneEl.classList.remove("hidden");
-  unreadCount = 0;
-  phoneEntry.querySelector(".entry-dot").classList.remove("unread");
-  renderHistory();
-  phoneInput.focus();
+chatBtn.addEventListener("click", () => {
+  chatDrawer.classList.toggle("hidden");
+  if (!chatDrawer.classList.contains("hidden")) { renderHistory(); chatInput.focus(); }
+});
+chatClose.addEventListener("click", () => chatDrawer.classList.add("hidden"));
+chatSend.addEventListener("click", submitChat);
+chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitChat(); } });
+
+relationBtn.addEventListener("click", () => { relationPanel.classList.toggle("hidden"); if (!relationPanel.classList.contains("hidden")) openRelation(); });
+relationClose.addEventListener("click", () => relationPanel.classList.add("hidden"));
+
+scheduleBtn.addEventListener("click", () => { schedulePanel.classList.toggle("hidden"); if (!schedulePanel.classList.contains("hidden")) openSchedule(); });
+scheduleClose.addEventListener("click", () => schedulePanel.classList.add("hidden"));
+
+settingsBtn.addEventListener("click", () => settingsPanel.classList.toggle("hidden"));
+settingsClose.addEventListener("click", () => settingsPanel.classList.add("hidden"));
+
+voiceBtn.addEventListener("click", () => showTip("🎤 语音功能即将接入"));
+
+hudToggle.addEventListener("click", () => {
+  const body = hudEl.querySelector(".hud-body");
+  body.style.display = body.style.display === "none" ? "block" : "none";
 });
 
-phoneClose.addEventListener("click", () => {
-  phoneEl.classList.add("hidden");
-});
-
-phoneEl.addEventListener("click", (event) => {
-  if (event.target === phoneEl) phoneEl.classList.add("hidden");
-});
-
-observerEntry.addEventListener("click", () => {
-  observerEl.classList.remove("hidden");
-  loadObserver();
-});
-
-observerClose.addEventListener("click", () => {
-  observerEl.classList.add("hidden");
-});
-
-observerEl.addEventListener("click", (event) => {
-  if (event.target === observerEl) observerEl.classList.add("hidden");
-});
-
-document.querySelectorAll(".observer-nav button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".observer-nav button").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    renderObserverView(btn.dataset.view);
+["set-name", "set-user-name", "set-hud", "set-proactive", "set-night", "set-sound"].forEach((id) => {
+  const el = document.getElementById(id);
+  el.addEventListener("change", () => {
+    if (id === "set-name") settings.name = el.value;
+    if (id === "set-user-name") settings.user_name = el.value;
+    if (id === "set-hud") settings.show_hud = el.checked;
+    if (id === "set-proactive") settings.allow_proactive = el.checked;
+    if (id === "set-night") settings.night_mode = el.checked;
+    if (id === "set-sound") settings.sound = el.checked;
+    saveSettings();
+    applySettings();
   });
-});
-
-function submitMessage() {
-  const text = phoneInput.value.trim();
-  if (!text) return;
-  appendChat("user", text, new Date().toISOString());
-  phoneInput.value = "";
-  sendMessage(text);
-}
-
-sendBtn.addEventListener("click", submitMessage);
-
-phoneInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    submitMessage();
-  }
 });
 
 /* ─────────── 启动 ─────────── */
 
-appendChat(
-  "assistant",
-  "你来啦。我在家呢，今天过得怎么样？",
-  new Date().toISOString(),
-);
+avatar.init(avatarMount);
+applySettings();
+
+xiaoqiSpeak("你来啦～欢迎回到我的房间。");
 
 renderHistory();
 loadStatus();
-loadProactive();
+loadSettingsBackend();
 
 setInterval(loadStatus, 5000);
-setInterval(loadProactive, 6000);
+setInterval(pollProactive, 6000);
