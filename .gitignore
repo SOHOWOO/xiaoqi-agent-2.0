@@ -22,5 +22,6 @@ tmp/
 dist/
 build/
 *.spec
+!packaging/xiaoqi.spec
 *.pyc
 __pycache__/
