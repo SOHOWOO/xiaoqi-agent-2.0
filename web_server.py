@@ -343,6 +343,22 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urlparse(self.path).path
 
+        # JS 前端诊断日志（不记录 API Key，仅调试用）
+        if path == "/api/_jslog":
+            try:
+                import appkit.paths as _paths
+                from appkit.paths import get_logs_dir
+                body = self.rfile.read(int(self.headers.get("Content-Length", "0") or 0))
+                data = json.loads(body.decode("utf-8"))
+                log_line = f"[frontend:{data.get('level','?')}] {data.get('msg','')}"
+                log_path = get_logs_dir() / "bootstrap.log"
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(log_line + "\n")
+            except Exception:
+                pass
+            self._send_json({"ok": True})
+            return
+
         if path == "/api/chat":
             self._handle_chat()
             return

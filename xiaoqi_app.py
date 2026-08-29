@@ -140,6 +140,32 @@ def _start_voice_ws() -> int:
     return 0
 
 
+class JsApi:
+    """前端 JS → Python 日志 bridge（诊断交互问题，不写 API Key）。"""
+
+    def __init__(self) -> None:
+        pass
+
+    def log(self, msg: str) -> None:
+        _log_bootstrap(f"[js] {msg}")
+
+    def error(self, msg: str) -> None:
+        _log_bootstrap(f"[js-error] {msg}")
+
+    def apiChat(self, msg: str) -> str:
+        """前端调用后端的真实聊天（绕过 JS fetch，验证 WebView→Python 链路）。"""
+        try:
+            return self._chat(msg)
+        except Exception as exc:
+            return f"[error] {exc}"
+
+    def _chat(self, msg: str) -> str:
+        from web_server import RUNTIME
+
+        result = RUNTIME.handle_message(msg)
+        return RUNTIME.respond(result)
+
+
 def _open_window(http_port: int) -> None:
     """启动 PyWebView 窗口（加载小七前端）。"""
 
@@ -164,8 +190,9 @@ def _open_window(http_port: int) -> None:
         min_size=(800, 600),
         resizable=True,
         fullscreen=False,
-        text_select=False,
+        text_select=True,          # 允许文本选择（不阻止输入）
         confirm_close=True,
+        js_api=JsApi(),
     )
     _log_bootstrap(
         f"[create_window] done url={url} "

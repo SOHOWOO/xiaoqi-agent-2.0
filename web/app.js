@@ -4,13 +4,24 @@
    ═══════════════════════════════════════════════════ */
 
 import Avatar2D from "./avatar/avatar_2d.js";
-import AvatarThree from "./avatar/avatar_three.js";
-import AvatarVRM from "./avatar/avatar_vrm.js";
 
 import AudioInputAdapter from "./voice/audio_input_adapter.js";
 import VoicePipeline from "./voice/voice_pipeline.js";
 import { BrowserSTT, ServerSTT } from "./voice/stt_adapter.js";
 import { createTTSAdapter } from "./voice/tts_adapter.js";
+
+/* ─────────── 诊断：全局错误 → 后端日志（fetch 信标，独立于 pywebview） ─────────── */
+function _jsLog(level, msg) {
+  try {
+    fetch("/api/_jslog", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({level, msg: String(msg).slice(0,200)}) });
+  } catch {}
+  console.log(`[${level}]`, msg);
+}
+(function() {
+  _jsLog("boot", "app.js module loaded");
+  window.addEventListener("error", (e) => { _jsLog("error", e.message + " @ " + e.filename + ":" + e.lineno); });
+  window.addEventListener("unhandledrejection", (e) => { _jsLog("unhandled", String(e.reason)); });
+})();
 
 /* ─────────── 元素 ─────────── */
 const $ = (id) => document.getElementById(id);
@@ -33,22 +44,26 @@ let avatar = null;
 let avatarMode = "2d";
 
 async function initAvatar() {
+  // 尝试 VRM（动态 import，不阻塞主模块）
   try {
+    const { default: AvatarVRM } = await import("./avatar/avatar_vrm.js");
     const vrm = new AvatarVRM();
     await vrm.init($("avatar-mount"));
     avatar = vrm;
     avatarMode = "vrm";
-    console.log("[avatar] VRM");
+    _jsLog("boot", "avatar: VRM");
     return;
-  } catch (e) { console.warn("[avatar] VRM unavailable:", e.message); }
+  } catch (e) { _jsLog("boot", `avatar: VRM unavailable (${e.message})`); }
+  // 尝试 Three.js（动态 import）
   try {
+    const { default: AvatarThree } = await import("./avatar/avatar_three.js");
     const three = new AvatarThree();
     await Promise.resolve(three.init($("avatar-mount")));
     avatar = three;
     avatarMode = "3d";
-    console.log("[avatar] Three.js");
+    _jsLog("boot", "avatar: Three.js");
   } catch (e) {
-    console.warn("[avatar] 3D unavailable, fallback 2D:", e);
+    _jsLog("boot", `avatar: 3D unavailable (${e.message}), fallback 2D`);
     avatar = new Avatar2D().init($("avatar-mount"));
     avatarMode = "2d";
   }
@@ -113,9 +128,25 @@ function switchView(name) {
   navBtns[name].classList.add("active");
   if (name === "chat") chatInput.focus();
 }
-navBtns.home.addEventListener("click", () => switchView("home"));
-navBtns.chat.addEventListener("click", () => switchView("chat"));
-navBtns.voice.addEventListener("click", () => switchView("voice"));
+function bind(id, event, fn, label) {
+  const el = $(id);
+  if (!el) { _jsLog("warn", `element #${id} not found, cannot bind ${label}`); return; }
+  el.addEventListener(event, (e) => { _jsLog("click", label); fn(e); });
+}
+function bindNav(id, name) {
+  const el = $(id);
+  if (!el) { _jsLog("warn", `nav #${id} not found`); return; }
+  el.addEventListener("click", () => { _jsLog("click", name); switchView(name); });
+}
+bindNav("nav-home", "home");
+bindNav("nav-chat", "chat");
+bindNav("nav-voice", "voice");
+bind("btn-settings", "click", () => { window.location.href = "/settings"; }, "settings");
+bind("btn-clear-chat", "click", () => {
+  if (confirm("清空全部聊天记录？")) { saveHistory([]); renderHistory(); }
+}, "clear_chat");
+bind("send-btn", "click", submitChat, "send");
+bind("chat-input", "keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitChat(); } }, "chat_input_key");
 
 /* ─────────── 聊天 ─────────── */
 const HISTORY_KEY = "xiaoqi_ai_chat";
@@ -152,9 +183,6 @@ function renderHistory() {
   chatMessages.innerHTML = "";
   loadHistory().forEach(renderChatMessage);
 }
-$("btn-clear-chat").addEventListener("click", () => {
-  if (confirm("清空全部聊天记录？")) { saveHistory([]); renderHistory(); }
-});
 
 async function sendMessage(text) {
   sendBtn.disabled = true;
@@ -200,8 +228,6 @@ function submitChat() {
   if (!t) return;
   sendMessage(t);
 }
-sendBtn.addEventListener("click", submitChat);
-chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitChat(); } });
 
 /* ─────────── 家中小七气泡 ─────────── */
 function showHomeBubble(text) {
@@ -297,8 +323,7 @@ function toast(text) {
   toastTimer = setTimeout(() => t.classList.add("hidden"), 4000);
 }
 
-/* ─────────── 设置 ─────────── */
-btnSettings.addEventListener("click", () => { window.location.href = "/settings"; });
+/* ─────────── 设置已在顶部 bind() 中绑定 ─────────── */
 
 /* ─────────── 主动消息 ─────────── */
 async function pollProactive() {
