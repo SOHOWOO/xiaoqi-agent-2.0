@@ -44,6 +44,7 @@
       <div class="logo">小七</div>
       <nav>
         <button data-section="ai" class="active">🧠 AI 大脑</button>
+        <button data-section="personality">💃 小七人格</button>
         <button data-section="tts">🔊 语音</button>
         <button data-section="stt">🎙️ 语音输入</button>
         <button data-section="home">🏠 小家</button>
@@ -83,6 +84,25 @@
           <button id="ai-test" class="btn">测试连接</button>
         </div>
         <div id="ai-result" class="result"></div>
+      </div>
+
+      <div id="panel-personality" class="panel">
+        <h2>💃 小七人格</h2>
+        <label>小七名字 <input id="pers-name" placeholder="小七"></label>
+        <label>用户称呼 <input id="pers-user-name" placeholder="主人"></label>
+        <label>性格描述 <textarea id="pers-trait" rows="3" placeholder="温柔、体贴、有一点小调皮…"></textarea></label>
+        <label>说话方式 <textarea id="pers-style" rows="3" placeholder="日常口语化，带一点撒娇…"></textarea></label>
+        <label>系统提示词 <textarea id="pers-prompt" rows="4" placeholder="可选：覆盖默认人格 Prompt"></textarea></label>
+        <label>情绪表现
+          <select id="pers-emotion">
+            <option value="auto">跟随小七状态</option>
+            <option value="warm">温暖</option>
+            <option value="playful">俏皮</option>
+            <option value="gentle">温柔</option>
+          </select>
+        </label>
+        <button id="personality-save" class="btn primary">保存人格</button>
+        <div id="personality-result" class="result"></div>
       </div>
 
       <div id="panel-tts" class="panel">

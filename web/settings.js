@@ -212,6 +212,25 @@ document.getElementById("appearance-save").addEventListener("click", async () =>
   alert("已保存");
 });
 
+/* ---------- 人格 ---------- */
+
+document.getElementById("personality-save").addEventListener("click", async () => {
+  await api("/api/config", {
+    method: "POST",
+    body: JSON.stringify({
+      personality: {
+        name: document.getElementById("pers-name").value,
+        user_name: document.getElementById("pers-user-name").value,
+        trait: document.getElementById("pers-trait").value,
+        style: document.getElementById("pers-style").value,
+        system_prompt: document.getElementById("pers-prompt").value,
+        emotion: document.getElementById("pers-emotion").value,
+      },
+    }),
+  });
+  show("personality-result", "已保存 ✓", true);
+});
+
 /* ---------- API 密钥 ---------- */
 
 async function loadKeyStatus() {

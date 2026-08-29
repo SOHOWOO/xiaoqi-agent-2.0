@@ -5,128 +5,131 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>小七</title>
   <link rel="stylesheet" href="/style.css">
-  <!-- Three.js 本地 vendor（3D Avatar） -->
   <script type="importmap">
-    {
-      "imports": {
-        "three": "/vendor/three/three.module.js"
-      }
-    }
+    { "imports": { "three": "/vendor/three/three.module.js" } }
   </script>
 </head>
 <body class="day">
 
-  <!-- ═══════════ Living World · ZERO UI ═══════════
-       全屏纯净观察窗口：无文字 / 无 HUD / 无按钮 / 无交互物件。
-       只有：小七、房间、光影、天气、动作、生活痕迹。
-       房间物件纯视觉，不可点击。 -->
-
-  <div id="room" class="room-scene">
-    <div class="sky"></div>
-    <div class="sun"></div>
-    <div class="moon"></div>
-
-    <div class="window">
-      <div class="window-frame">
-        <div class="cityscape"></div>
-        <div class="glass"></div>
+  <!-- ═══════ 顶部栏 ═══════ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-avatar">小</div>
+      <div class="brand-text">
+        <strong>小七</strong>
+        <small id="status-text">在线</small>
       </div>
     </div>
 
-    <div class="room-interior">
-      <div class="wall"></div>
-      <div class="floor"></div>
-
-      <div class="wall-decor">
-        <div class="poster"></div>
-        <div class="shelf">
-          <span class="book b1"></span>
-          <span class="book b2"></span>
-          <span class="book b3"></span>
-        </div>
-      </div>
-
-      <div class="bed">
-        <div class="bed-frame">
-          <div class="pillow"></div>
-          <div class="blanket"></div>
-        </div>
-      </div>
-
-      <div class="desk">
-        <div class="desk-top"></div>
-        <div class="desk-leg"></div>
-        <div class="book-open"></div>
-        <div class="lamp-mini"></div>
-      </div>
-
-      <div class="sofa">
-        <div class="sofa-arm a"></div>
-        <div class="sofa-seat"></div>
-        <div class="sofa-arm b"></div>
-      </div>
-
-      <div class="lamp">
-        <div class="lamp-stand"></div>
-        <div class="lamp-shade"></div>
-      </div>
-
-      <div class="plant">
-        <div class="pot"></div>
-        <span class="leaf l1"></span>
-        <span class="leaf l2"></span>
-        <span class="leaf l3"></span>
-      </div>
-
-      <!-- 小七 Avatar 挂载点（Avatar2D） -->
-      <div id="avatar-mount"></div>
-
-      <div class="light-fx"></div>
-      <div class="rain"></div>
-    </div>
-  </div>
-
-  <!-- ═══════════ 极简入口（自动隐藏，不占视觉中心） ═══════════ -->
-  <button id="phone-entry" class="phone-entry" aria-label="小七手机" tabindex="-1">📱</button>
-  <button id="observer-entry" class="observer-entry" aria-label="心灵观察站" tabindex="-1">✦</button>
-
-  <!-- ═══════════ 小七手机（聊天） ═══════════ -->
-  <div id="phone" class="phone hidden">
-    <div class="phone-shell">
-      <div class="status-bar"></div>
-      <div class="chat-header">
-        <button id="phone-close" class="close-btn">‹</button>
-        <div class="chat-avatar">小</div>
-        <div class="chat-meta">
-          <strong>小七</strong>
-          <small id="phone-status">在线</small>
-        </div>
-      </div>
-      <div id="phone-messages" class="phone-messages"></div>
-      <div class="composer">
-        <button id="mic-btn" class="mic" title="语音 · 开发中" disabled>🎤</button>
-        <input id="phone-input" placeholder="发消息…" autocomplete="off">
-        <button id="send-btn" class="send">➤</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════ 心灵观察站（信息 / 设置） ═══════════ -->
-  <div id="observer" class="observer hidden">
-    <aside class="observer-panel">
-      <div class="observer-title">小七的心灵</div>
-      <nav class="observer-nav">
-        <button data-view="emotion" class="active">💗 情绪</button>
-        <button data-view="relation">❤️ 关系</button>
-        <button data-view="diary">📖 今日日记</button>
-        <button data-view="memory">🧠 我们的回忆</button>
-        <button data-view="schedule">📅 她的日程</button>
-        <button data-view="settings">⚙️ 设置</button>
+    <div class="topbar-center">
+      <nav class="main-nav">
+        <button id="nav-home" class="nav-btn active">🏠 <span>小家</span></button>
+        <button id="nav-chat" class="nav-btn">💬 <span>聊天</span></button>
+        <button id="nav-voice" class="nav-btn">🎙 <span>语音</span></button>
       </nav>
-      <div id="observer-content" class="observer-content"></div>
-      <button id="observer-close" class="observer-close">收起</button>
-    </aside>
-  </div>
+    </div>
+
+    <div class="topbar-right">
+      <span id="time-display" class="time-display"></span>
+      <button id="btn-settings" class="icon-btn" title="设置">⚙</button>
+    </div>
+  </header>
+
+  <!-- ═══════ 主区域 ═══════ -->
+  <main class="main-area">
+
+    <!-- 小家视图：房间 + 小七 -->
+    <section id="view-home" class="view active">
+      <div id="room" class="room-scene">
+        <div class="sky"></div>
+        <div class="sun"></div>
+        <div class="moon"></div>
+
+        <div class="window">
+          <div class="window-frame">
+            <div class="cityscape"></div>
+            <div class="glass"></div>
+          </div>
+        </div>
+
+        <div class="room-interior">
+          <div class="wall"></div>
+          <div class="floor"></div>
+
+          <div class="wall-decor">
+            <div class="poster"></div>
+            <div class="shelf">
+              <span class="book b1"></span>
+              <span class="book b2"></span>
+              <span class="book b3"></span>
+            </div>
+          </div>
+
+          <div class="bed"><div class="bed-frame"><div class="pillow"></div><div class="blanket"></div></div></div>
+          <div class="desk">
+            <div class="desk-top"></div><div class="desk-leg"></div>
+            <div class="book-open"></div><div class="lamp-mini"></div>
+          </div>
+          <div class="sofa">
+            <div class="sofa-arm a"></div><div class="sofa-seat"></div><div class="sofa-arm b"></div>
+          </div>
+          <div class="lamp"><div class="lamp-stand"></div><div class="lamp-shade"></div></div>
+          <div class="plant"><div class="pot"></div><span class="leaf l1"></span><span class="leaf l2"></span><span class="leaf l3"></span></div>
+
+          <div id="avatar-mount"></div>
+
+          <div class="light-fx"></div>
+          <div class="rain"></div>
+        </div>
+      </div>
+
+      <!-- 小七气泡 -->
+      <div id="home-bubble" class="home-bubble hidden"></div>
+
+      <!-- 小家状态卡片 -->
+      <div id="home-status" class="home-status hidden">
+        <div><span>心情</span><b id="st-mood">-</b></div>
+        <div><span>精力</span><b id="st-energy">-</b></div>
+        <div><span>活动</span><b id="st-activity">-</b></div>
+      </div>
+    </section>
+
+    <!-- 聊天视图 -->
+    <section id="view-chat" class="view">
+      <div class="chat-layout">
+        <div class="chat-header">
+          <div class="chat-partner">
+            <div class="chat-avatar">小</div>
+            <div><strong>小七</strong><small id="chat-status">在线</small></div>
+          </div>
+          <button id="btn-clear-chat" class="text-btn">清空</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+      </div>
+    </section>
+
+    <!-- 语音视图 -->
+    <section id="view-voice" class="view">
+      <div class="voice-layout">
+        <div class="voice-orb" id="voice-orb">🎙</div>
+        <h2 id="voice-hint">按住 🎙 说话</h2>
+        <p id="voice-text" class="voice-text">小七会听见你，并用声音回应。</p>
+        <div class="voice-panel">
+          <button id="voice-btn" class="voice-btn" title="按住说话">🎙</button>
+          <p class="voice-note" id="voice-note">语音输入：浏览器识别 · 语音输出：浏览器 / 阿里云</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════ 底部输入栏（聊天/小家通用） ═══════ -->
+  <footer class="composer-bar">
+    <button id="mic-btn" class="composer-mic" title="按住说话">🎤</button>
+    <input id="chat-input" placeholder="和小七说点什么…" autocomplete="off">
+    <button id="send-btn" class="composer-send">发送</button>
+  </footer>
+
+  <div id="toast" class="toast hidden"></div>
 
   <script type="module" src="/app.js"></script>
 </body>
