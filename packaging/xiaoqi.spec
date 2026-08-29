@@ -39,6 +39,11 @@ a = Analysis(
         "asyncio",
         "urllib.request",
         "urllib.error",
+        # PyWebView 运行时动态选择 Windows backend（edgechromium/mshtml）
+        "webview",
+        "webview.platforms.edgechromium",
+        "webview.platforms.win32",
+        "webview.platforms",
         # 记忆导入依赖（python-docx）
         "docx",
         "docx.document",

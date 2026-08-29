@@ -146,15 +146,17 @@ def _open_window(http_port: int) -> None:
     try:
         import webview
     except ImportError:
+        _log_bootstrap("[boot] pywebview not installed")
         print(
             "pywebview 未安装。请执行: pip install pywebview\n"
             f"开发模式可手动打开: http://127.0.0.1:{http_port}"
         )
         return
 
+    _log_bootstrap("[create_window] starting")
     url = f"http://127.0.0.1:{http_port}"
 
-    webview.create_window(
+    window = webview.create_window(
         title="小七",
         url=url,
         width=1200,
@@ -165,6 +167,14 @@ def _open_window(http_port: int) -> None:
         text_select=False,
         confirm_close=True,
     )
+    _log_bootstrap(
+        f"[create_window] done url={url} "
+        f"window={getattr(window, 'uid', '?')}"
+    )
+
+    _log_bootstrap("[webview_start] starting")
+    webview.start()
+    _log_bootstrap("[webview_return] returned")
 
 
 def _cleanup() -> None:
